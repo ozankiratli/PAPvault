@@ -107,8 +107,8 @@ Before calling a file done, grep for `on purpose | deliberately | rather than | 
 What a person cannot do is re-check, after every change, everything that was checked before, and an agent produces changes faster than anyone can. Three things cover that, and none of them takes the testing away from Z:
 
 1. **The promise is enforced by the page, not by care.** The Content-Security-Policy described under *Security* makes the browser refuse any outbound connection. It is in place before the first feature that reads a file.
-2. **A written checklist, run by Z before each release**: what to check, and what a failure looks like. A check with no stated failure is not a check. When a change adds behavior worth protecting, propose its checklist entry with the change.
-3. **A record of every verification, in Z's words**: what was checked, on what data, at which commit. Testing that is not written down is invisible to the reviewer this project is for. **The agent never writes that Z verified something**, and never presents its own checks as Z's.
+2. **A written checklist, run by Z before each release**, in `CHECKLIST.md` at the repository root: what to check, and what a failure looks like. A check with no stated failure is not a check. When a change adds behavior worth protecting, propose its checklist entry with the change.
+3. **A record of every verification, in Z's words**, in `VERIFICATION.md` at the repository root: what was checked, on what data, at which commit. Testing that is not written down is invisible to the reviewer this project is for. **The agent never writes that Z verified something**, and never presents its own checks as Z's.
 
 What the agent does before handing a change over:
 

@@ -47,3 +47,7 @@ Four rules have no direct counterpart in PoolSeqFlow, and all four come from wha
 ## Added later on 2026-09-18, against `4db9efc`
 
 Z ruled that PAPvault displays what the device declares and concludes nothing beyond it, so it shows no threshold at all. That left *A clinical number needs a checked source* covering what a value means -- its unit, what a flag or an event code stands for -- rather than where a line is drawn. The brief this came with is in `product-brief.md`.
+
+## Added later on 2026-09-18, against `8019e52`
+
+The checklist and the verification record went to the repository root, as `CHECKLIST.md` and `VERIFICATION.md`, where a reviewer finds them without looking for them. The checklist started with the two entries Z had already approved, for the first deploy; every later entry arrives with the change that adds the behavior it protects. The agent created `VERIFICATION.md` with its header only, since every entry in it is Z's.
