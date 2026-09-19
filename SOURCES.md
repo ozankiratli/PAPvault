@@ -51,7 +51,7 @@ OSCAR, the Open Source CPAP Analysis Reporter, is the free desktop program peopl
 ## The reference for reading a real card
 
 - **PAPvault's R prototype,** written by Z and kept outside the repository: the ground truth for reading an AirSense 10 card, on Z's own machine.
-- **edf, the R package it reads files with:** [github.com/bwrc/edf](https://github.com/bwrc/edf), version 1.0.0, MIT according to its own description file.
+- **edf, the R package it reads files with:** [github.com/bwrc/edf](https://github.com/bwrc/edf), MIT according to its own description file. Version 1.0.1, installed from CRAN by Z on 2026-09-19, is the one the checks run with.
 
 ## Libraries and design references
 

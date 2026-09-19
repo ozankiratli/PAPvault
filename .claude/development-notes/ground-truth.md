@@ -55,3 +55,17 @@ So during development `STR.edf` is read, and each figure the device declares is 
 ## Added 2026-09-19, against `f7dd53f`
 
 Z, on the files the prototype does not read: *"crc and journal.dat are not needed. We should not be concerned with those."* So the `.crc` file beside each EDF file and `Journal.dat` are not read. The survey of 2026-09-19 found no source, OSCAR included, that documents either format, and neither is pursued.
+
+## Added later on 2026-09-19, against `cece505`
+
+Z made `prepare_data()` the design PAPvault's reading follows, not only the check on it: *"For ResMed, we will use the time implementation that I built. For the others, we will use a similar implementation. I really think the way I implemented the data prep is good. It can be improved but it is the implementation we will use."* The rule is in `CLAUDE.md`, and how it came about is in `other-projects.md`.
+
+That changes what agreement with the prototype can show:
+- **Decoding still has two independent readers.** PAPvault's decoder is written from the EDF specification, and `edf` is a separate decoder. Agreement on the header fields, the values and the annotation text is still evidence from both.
+- **Timing now has one design.** PAPvault gives each sample and each event its time the way `prepare_data()` does. Agreement on times therefore shows the design was carried over faithfully. Whether the design is right rests with Z.
+
+The prototype also gains a second use. In the workflow for synthetic data in `CLAUDE.md`, it reads each synthetic ResMed card, and what it reads is compared with the answer the generator wrote.
+
+Z installed `edf` 1.0.1 from CRAN on 2026-09-19; `Rscript -e 'packageVersion("edf")'` shows it. `SOURCES.md` had recorded 1.0.0. Which version the prototype was first written against is not recorded. Checks from this date on run with 1.0.1.
+
+Later that day Z ruled that PAPvault reads only night data (`product-brief.md` has the words). `STR.edf` is no longer read, so the side-by-side check described above is gone: there are no device-declared daily figures to set against PAPvault's own. What the prototype checks is unchanged, because `prepare_data()` never read `STR.edf`.

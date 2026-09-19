@@ -51,3 +51,7 @@ Z ruled that PAPvault displays what the device declares and concludes nothing be
 ## Added later on 2026-09-18, against `8019e52`
 
 The checklist and the verification record went to the repository root, as `CHECKLIST.md` and `VERIFICATION.md`, where a reviewer finds them without looking for them. The checklist started with the two entries Z had already approved, for the first deploy; every later entry arrives with the change that adds the behavior it protects. The agent created `VERIFICATION.md` with its header only, since every entry in it is Z's.
+
+## Added later on 2026-09-19, against `cece505`
+
+Z moved `CHECKLIST.md` and `VERIFICATION.md` into `dev/`, together with the new `READING-LOG.md`. `CLAUDE.md` points at the new places. The notes written before the move still name the root, as the tree had it when they were written.

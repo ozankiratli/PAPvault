@@ -75,3 +75,23 @@ After the survey of other machines, Z set PAPvault's place beside OSCAR: *"We sh
 Z also asked whether OSCAR sends anything anywhere. The agent read OSCAR's source at commit `64c5e90a` (2026-07-13) of `gitlab.com/CrimsonNape/OSCAR-code`. The only network code in it is an update check in `oscar/checkupdates.cpp`: a plain-HTTP request for the fixed address `http://apneaboard.net/OSCAR/versions.xml` (line 69), with nothing attached. It is on by default and runs at most every 14 days (`oscar/SleepLib/appsettings.cpp`, lines 68 and 69); a test build forces it on and caps the interval at 7 days (`oscar/main.cpp`, lines 687 to 692); it can be switched off in the preferences, and removed from a build with `NO_CHECKUPDATES`, which `oscar/oscar.pro` leaves commented out at line 46. Like any request it tells the server an address and that someone is running OSCAR, but it carries no therapy data. Z: *"OK that's what I thought so it is safe to refer people to OSCAR for a better system."*
 
 The survey had turned up a ResMed support article on myAir and patients who sleep through noon, as a possible official source for the CPAP day. Z ruled it out, and myAir with it: *"SD card stores the data. That's the source we rely on, not ResMed's buggy systems. MyAir related issues are no concern to our purposes."* The CPAP day rests on Z's definition and on the card, whose `DATALOG` folders are named by the date each night began.
+
+## Added later on 2026-09-19, against `cece505`
+
+Z made the CPAP day final for every machine: *"The day decision is final, not just for ResMed. We will treat the days as from noon to noon."* Whatever a machine does itself, PAPvault's days run from noon to noon, named by the date they begin. Z gave the ruling after stopping the agent reading OSCAR's reader. That account is in `other-projects.md`.
+
+Later that day Z ruled that PAPvault reads only night data:
+
+> I don't know why STR.edf matters. It is not night data. We should not be reading anything that is not data from the night. Same goes for journal.dat. We're building something that is supposed to be "not nosy".
+
+Then:
+
+> PAPvault should never touch anything identifying.
+
+And, while the agent was recording those two:
+
+> This is where we're trying to diverge from OSCAR
+
+Z then set how a card is read and what is shown, in `CLAUDE.md` under *How a card is read, and what is shown*. The agent had raised one question for it: a session that crosses noon could be cut at noon, or given whole to the day it began in. The agent recommended cutting; Z chose the other: *"Give the whole session to the day it began in, which keeps a session whole but lets a day's summary include time outside it." OK This is definitely a better way to do it.* It also settles the open question of which folder the machine files a session under, because the pipeline works from the times in the files and never from the folder.
+
+This reverses the side-by-side decision recorded under *Summaries* above. The device's own daily figures were to come from `STR.edf`, and that file is no longer read. So summaries are computed from night data alone, and nothing sits beside them. The rule is in `CLAUDE.md` under *It reads the night, and nothing that identifies*.

@@ -73,3 +73,29 @@ Which machines PAPvault claims to support is Z's decision. As the survey left th
 - **Not supported, by Z's decision:** the Philips DreamStation 2 and the Transcend machines, until Z can test on one.
 - **Not possible for a reader of files:** the ResMed AirMini, which has no card, and the vREM, whose data reaches a computer only through its app.
 - **Nothing public to build on:** Apex (Wellell), Breas Z1 and Z2, Sefam.
+
+## Added later on 2026-09-19, against `cece505`
+
+Z chose all three of the groups that can be read: *"I agree with groups 1, 2 and 3. dev/synthetic is good."* So PAPvault is to read ResMed S9, AirSense and AirCurve 10 and 11; Loewenstein prisma SMART and SOFT; Fisher & Paykel SleepStyle and ICON; Philips System One, DreamStation 1 and DreamStation Go; DeVilbiss IntelliPAP 1 and 2; BMC and React Health Luna and RESmart; Resvent iBreeze and Hoffrichter Point and Trend; Yuwell BreathCare; and Weinmann SOMNObalance and SOMNOsoft. The limit named above stands for the third group: until a real card is read, a reader of those formats has been checked only against a description.
+
+The synthetic data is to be made by one Python standard-library script per format family under `dev/synthetic/`, committed, writing its output to `dev/synthetic/out/`, which git ignores.
+
+## Added later on 2026-09-19, against `cece505`: ResMed only, and what the others are waiting for
+
+Z narrowed the list to ResMed: *"Then, we will support only ResMed for now. I will try to put my hands on some other data personally, until then we will have it as development note."*
+
+What changed between the decision above and this one, in one day:
+- **Z set what may be taken from another project:** where the night files are, and, for a format that is not a standard, what each file holds. `CLAUDE.md` has the rule, and `other-projects.md` has how it came about.
+- **A search for readers other than OSCAR** (`dev/READING-LOG.md`, R-016) found how thin the ground is. Only BMC and Yuwell have a reader that worked the format out independently. The Fisher & Paykel parser takes its description from OSCAR's predecessor. Nothing was found for DeVilbiss, Weinmann, SleepStyle or Philips. For Yuwell, OSCAR's own reader may descend from the independent project rather than the other way round.
+- **So for most machines, one project is both the source and the only possible check.** That is the case `CLAUDE.md` already said the notes must name, and it is the reason the list is now one manufacturer long.
+
+ResMed is different only because EDF is published and the R `edf` package is an implementation of it that nobody here wrote, and because Z has an AirSense 10 card to check against. Inside ResMed, the S9 and the 11 series still rest on OSCAR's label table alone.
+
+**What a machine needs before it joins the list:**
+1. **A card Z can test on.** That is the gate, and it is why the rest are parked.
+2. **A cleared read** of how that machine stores its night data, through `dev/READING-LOG.md`. The entries are already named, R-007 to R-015, each carrying what R-016 found about its sources. Each is marked *Parked*.
+3. **A format file**, `formats/<family>.md`, with each fact citing its entry.
+4. **A generator and its cases**, by the steps in `CLAUDE.md` under *How synthetic data is made*.
+5. **A run against the real card**, which is the only step that shows the reader agrees with the machine rather than with a description of it.
+
+Nothing about the parked machines is deleted. The survey above, the log entries and `SOURCES.md` keep what was learned, so picking one up later starts at step 1 rather than at the beginning.

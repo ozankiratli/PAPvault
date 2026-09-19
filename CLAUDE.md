@@ -1,8 +1,24 @@
 # Working on PAPvault
 
-PAPvault is a web platform for viewing PAP therapy data (CPAP, APAP, BiPAP) interactively, where **the data never leaves the user's machine**. It revives an abandoned R/Shiny prototype, which sits untracked in `CPAP_old/`. It is a single page in HTML, CSS and JavaScript, served from GitHub Pages and possibly also offered as one file that runs offline (Z, 2026-09-18). A **CPAP day** runs from 12:00 on its date to 12:00 on the next calendar day, and is not a calendar day (Z, 2026-09-18 and 2026-09-19); every day the page shows or selects is a CPAP day.
+PAPvault is a web platform for viewing PAP therapy data (CPAP, APAP, BiPAP) interactively, where **the data never leaves the user's machine**. It revives an abandoned R/Shiny prototype, which sits untracked in `CPAP_old/`. It is a single page in HTML, CSS and JavaScript, served from GitHub Pages and possibly also offered as one file that runs offline (Z, 2026-09-18). A **CPAP day** runs from 12:00 on its date to 12:00 on the next calendar day, and is not a calendar day (Z, 2026-09-18 and 2026-09-19). Every day the page shows or selects is a CPAP day. That holds for every machine, whatever the machine does itself. Z, 2026-09-19: *"The day decision is final, not just for ResMed."*
 
-PAPvault is not a replacement for OSCAR, the open-source desktop program for the same data. Z, 2026-09-19: *"Again. The aim is not to replace OSCAR. We can even direct people to use it for long term storage. This is to skip that requirement."* PAPvault is for a person who wants to look at their data without installing anything. Not supported for now: the Philips DreamStation 2 and Transcend machines, until Z can test on one (Z, 2026-09-19).
+PAPvault is not a replacement for OSCAR, the open-source desktop program for the same data. Z, 2026-09-19: *"Again. The aim is not to replace OSCAR. We can even direct people to use it for long term storage. This is to skip that requirement."* PAPvault is for a person who wants to look at their data without installing anything.
+
+**PAPvault reads ResMed machines, and for now only those**: the S9, and the AirSense and AirCurve 10 and 11. Z, 2026-09-19: *"Then, we will support only ResMed for now. I will try to put my hands on some other data personally, until then we will have it as development note."*
+
+Why those and not the rest:
+- **ResMed writes EDF,** a published standard, so its files say what they hold. The R `edf` package gives that standard an implementation nobody here wrote.
+- **An AirSense 10 card has an independent check** in Z's R prototype.
+- **Every other machine's format is known only through other projects' reverse engineering,** and a search for readers independent of OSCAR found one for BMC and one for Yuwell, and none for the rest (`dev/READING-LOG.md`, R-016). A reader built from one project's description and checked against that same project has been checked against itself.
+
+A machine joins that list when Z can test on a card of it. What it then needs is in `.claude/development-notes/machine-survey.md`. Even inside ResMed, only the AirSense 10 has a card to check against: the S9 and the 11 series are read the same way, and until Z has one of those cards, that is an expectation rather than a tested fact.
+
+**How PAPvault reads a card follows Z's `prepare_data()`**, in `CPAP_old/data_prep.R`. Z, 2026-09-19: *"For ResMed, we will use the time implementation that I built. For the others, we will use a similar implementation. I really think the way I implemented the data prep is good. It can be improved but it is the implementation we will use."* Under that design:
+- a sample's time is its file's start time plus the sample's offset in the file;
+- an event starts at its file's start time plus its onset, and ends its duration later;
+- each signal file gives a recording start at its own start and a recording stop at its own end.
+
+Improving that design is Z's decision, and another project doing it differently is no argument for a change.
 
 PAPvault is also a showcase. Z calls the method **human-in-the-steering-wheel** development, as opposed to human-in-the-loop: the human drives, rather than approving what the agent drives. Z, 2026-09-18: *"I want the reviewer to look at this and say, 'yeah AI agents can be used responsibly, when developing a health related app.'"* So the record of how PAPvault is built is part of what it delivers. Write every rule, note and commit message for a reviewer who arrives skeptical and checks.
 
@@ -27,7 +43,36 @@ Z, 2026-09-18: *"We will not make any conclusions beyond what the PAP machine de
 
 PAPvault shows what the device recorded and what the device itself declares, and adds no judgment of its own. However helpful it looks, that rules out a severity band or a "normal range", a good or bad color on a value, a goal line, a trend verdict, a score, and any advice. Where the device declares something -- an event, a flag, a figure of its own -- PAPvault shows it as the device's.
 
-What the device declares is what is on its card. A manufacturer's app or cloud portal, such as ResMed's myAir, is not a source, and how it behaves is no concern of PAPvault's (Z, 2026-09-19).
+What the device declares is what its night data on the card holds. A manufacturer's app or cloud portal, such as ResMed's myAir, is not a source, and how it behaves is no concern of PAPvault's (Z, 2026-09-19).
+
+## It reads the night, and nothing that identifies
+
+Z, 2026-09-19:
+
+> I don't know why STR.edf matters. It is not night data. We should not be reading anything that is not data from the night. Same goes for journal.dat. We're building something that is supposed to be "not nosy".
+
+> PAPvault should never touch anything identifying.
+
+> This is where we're trying to diverge from OSCAR
+
+- **Only night data is read.** A file that does not hold the recording of a night is not opened.
+  - On a ResMed card that rules out `STR.edf`, `Identification.*`, `SETTINGS/`, `Journal.dat` and the `.crc` files.
+  - On other machines it rules out their settings and configuration files.
+  - Summaries are computed from night data alone.
+- **Nothing identifying is touched.** A field that names or numbers the person or the machine is skipped, and never decoded, shown or kept. That covers EDF's patient and recording fields, and any serial number. A folder named by a serial number is passed through, and its name is never shown or kept.
+- **Here PAPvault diverges from OSCAR by design.** That another tool reads a file is no reason for PAPvault to read it.
+
+## How a card is read, and what is shown
+
+Z set this on 2026-09-19:
+
+> User selects data folder -> Selects date or date range -> pipeline reads the data from one day before the date to one day after the date (it will be +1 cpap day or +2 calendar days) Then calculates the dates with what I already have and subsets it to the relevant days.
+
+- **The reading runs in that order,** and nothing about the machine's own filing is assumed. A file's name and header say when its session started, so which folder the machine filed it under never decides anything.
+- **A session belongs to the CPAP day it began in,** whole. Its samples and events go with it, including any that fall after the next noon. So no session is split, none is counted twice, and a day's summary can cover a little more than the day.
+- **What is shown depends on how much is chosen** (Z, 2026-09-19): one day shows that day's detail, with the detailed plots; any longer period shows summary figures and summary plots only.
+- **What is read follows what is shown.** A period longer than a day needs no waveform file, and no waveform file is opened for it. Reading a year of nights takes time, and the page says so rather than appearing stuck.
+- **An event keeps the words the device wrote.** Z, 2026-09-19: *"The apnea labels are in "annotation" column when the eve file is read. I agree with keeping them as they are."* PAPvault never maps one machine's labels onto another's, and never groups them into kinds of its own. A grouping would be PAPvault deciding that two devices mean the same thing.
 
 ## Real device data never enters the agent's context
 
@@ -38,8 +83,8 @@ Real data is anything from a device's SD card or an export of one, and anything 
 - **Never read it into the conversation.** No `Read`, `cat`, `head`, `strings` or `hexdump`, and no `grep` or script whose output prints its contents.
 - **A local script over real data needs Z's go-ahead first**, and its output carries neither an identifier nor a per-night value. Signal labels, sampling rates, record counts and durations are structure; a pressure, a leak rate or an event count is the record.
 - **The ground truth for reading a real card is the R prototype**, `prepare_data()` in `CPAP_old/data_prep.R` (Z, 2026-09-18). A comparison against it runs on Z's machine, and what reaches the conversation is a verdict, never a value. It reaches only the files that function reads; the rest of a card has no ground truth yet.
-- **Format knowledge comes from published specifications and open-source readers**, cited, not from inspecting a real card.
-- **Data for development and checking is synthetic.** A committed generator builds it, with Z's help, and nothing in it is derived from real data.
+- **Format knowledge comes from published specifications**, and from other projects only on the terms under *What we take from other projects*. Every source is cited. It never comes from inspecting a real card.
+- **Data for development and checking is synthetic.** A committed generator builds it, with Z's help, and nothing in it is derived from real data. Generators live in `dev/synthetic/`, one Python standard-library script per format family, and write to `dev/synthetic/out/`, which git ignores.
 - **Nothing derived from real data goes into the repository, a development note, a commit message, a published artifact or a screenshot** unless Z has approved that item by name.
 - `CPAP_old/` stays gitignored, and nothing under it is ever staged. `.gitignore` also ignores every EDF file and the folders and files of a ResMed card, wherever they appear, synthetic output included; nothing it ignores is ever added with `git add -f`.
 
@@ -60,11 +105,60 @@ Z, 2026-09-18: *"we should be careful with JS. It should be completely open sour
 
 Z, 2026-09-19: *"We should not use code directly from OSCAR. I think it would be wrong. I don't think it is wrong to use the knowledge. We will display all the source of knowledge we collected in SOURCES.md."*
 
+Later that day, the agent was reading OSCAR's reader to build a synthetic data generator, and Z stopped it: *"There is already a lot of backlash against using AI agents because they plagiarize and it becomes stolen work. I want to make a showcase of responsible AI use."* The attempt, and how Z stopped it, are in `.claude/development-notes/other-projects.md`. Then Z set the rule:
+
+> *"What we need to collect is how the data is stored. When you need to read something for a specific purpose we need to name it, record it, clear it, and do it."*
+>
+> *"We can read OSCAR's reader for only the purposes of data generation. We need to record what the task was. The issue with the previous attempt was that I saw that OSCAR was becoming the authoritative tool to make decisions about this tool I'm building."*
+
+None of what follows is relaxed for convenience, for speed, or because a fact seems small.
+
+- **What is collected is where the night data is, and what a standard does not already say** (Z, 2026-09-19).
+  - EDF describes itself. So for an EDF file, the only thing taken from another project is the folder tree: where the night files are, and how they are named.
+  - For a format that is not a standard, what each file holds is taken as well, per model.
+  - What PAPvault reads is settled by Z's `prepare_data()`, never by another project. How another project divides the data, checks it or shows it is never taken.
+- **Where models may differ, how other tools read them is looked at with limited scope.** For the three ResMed series (S9, 10 and 11), a harnessed read may show how another tool reads each one. Its only purpose is to learn whether the series differ, and how. Z, 2026-09-19: *"This is where we can look (with limited scope) how other people are reading the data (OSCAR, or another tool) for all 3 machines to understand if there is a difference between them and what the difference is. My code settles what we are reading."*
+- **Every read is named, recorded, cleared and done, in that order.** This applies to every source that is not a tracked file of this repository: a specification, Z's prototype, another project's code or documentation, a manufacturer's document, a forum. It binds any agent the agent starts, and that agent's brief carries the entry.
+  1. *Name*: the task the read serves, the source (its file or section, at a commit or a URL), and the facts it is for.
+  2. *Record*: an entry in `dev/READING-LOG.md`, written before anything is opened.
+  3. *Clear*: Z writes the entry's *Cleared* line. The agent never writes it.
+  4. *Do*: read only what was cleared, for the facts named, then add to the entry what was found.
+- **Another project's reader is always harnessed.** It is read only to build synthetic data, and only through those four steps. What comes out of it is how the data is stored, and that goes into `formats/` and nowhere else.
+- **No other project is an authority on PAPvault.** Z decides how PAPvault divides days, how it times what it reads, and what it shows or leaves out, following Z's `prepare_data()`. That another project does something differently is not an argument.
+- **A published specification is the source wherever one exists.**
+- **A gap goes to Z, not to the nearest source.** When the sources already cleared leave a fact open, the agent stops and names the gap. Z decides where the fact comes from, or that it is left out.
+- **Facts cross over in writing.** A fact goes into `formats/<family>.md`, citing its log entry and quoting no code, and code is written from that file. The code is written in a new session, one whose context has never held another project's reader for that family. A compacted session is not a new one.
+- **A slip is stopped and recorded.** A slip is a read that skipped a step or went beyond what was cleared. The agent stops it, tells Z exactly what was read, and records it in the log. Nothing learned from it is used until Z has ruled on it.
 - **No code from OSCAR or any other project goes into PAPvault**, whether copied or translated into JavaScript line by line. Every line is written here, from what is known about the format. The libraries approved under *Security* are the one exception: other people's code, carried whole, under their own licenses, and credited.
-- **Knowledge may be used**: what a file holds, where, in what order and in what units. Every source of it, whether a specification, a manufacturer's document, another project's code or documentation, or a forum, is listed in `SOURCES.md` at the repository root, with what was learned from it.
-- **A fact taken from another project is cited in the development notes** to the repository, the file and the commit it was read at, so anyone can check it.
+- **Every source is listed in `SOURCES.md`** at the repository root, with what was learned from it. The log entry for a read gives the repository, file and commit it was read at, so anyone can check it.
 - **A project with no license is read for facts only**, and none of its text is reproduced.
 - **Where one project is the only source for a fact, it cannot also be the check on it.** A reader built from OSCAR's description of a format and then compared with OSCAR has been compared with itself. The notes say where that is the case.
+
+## How synthetic data is made
+
+Z agreed this workflow on 2026-09-19. Each format family goes through these steps in order:
+
+1. **Name** the storage facts the family's night data needs, and a source for each. Nothing identifying is named. A specification comes first, then Z or Z's prototype, then a named file of another project. A gap goes to Z.
+2. **Record, clear and read** each source through `dev/READING-LOG.md`, as set out under *What we take from other projects*.
+3. **Describe** the storage in `formats/<family>.md`.
+   - Each fact cites its log entry and says where it came from: a specification, Z, or a single other project.
+   - A value no source gives, such as a calibration range, is marked as the generator's choice. A reader must not depend on it.
+   - Z reviews the file before any code is written.
+4. **Agree the cases with Z**, also before any code: what each synthetic card exercises and what it must show. Z's realistic patterns are quoted in the case that uses them. A case whose answer depends on something Z has not decided is marked undecided, not guessed.
+5. **Generate** from the format file and the cases alone, in a new session.
+   - One Python standard-library script per family, in `dev/synthetic/`. It is seeded and writes the same bytes on every run.
+   - Each case goes to `dev/synthetic/out/<family>/<case>/`: the card, and an `answer.json` derived from how the card was built.
+   - Times in the answer follow the design under *How PAPvault reads a card*.
+   - One change at a time.
+6. **Check.** The agent:
+   - runs the generator twice and compares the checksums;
+   - for an EDF family, has the R `edf` package, which the prototype reads with (1.0.1, installed by Z), decode the synthetic files, then compares that with `answer.json`;
+   - for ResMed, also has `prepare_data()` read the synthetic card.
+
+   For a family with no independent decoder, the generator and the reader are written from the same format file, and the notes say so. Then Z checks, and records the check in `dev/VERIFICATION.md`.
+7. **Record** the family's decisions in a development note, and propose checklist entries.
+
+Only ResMed has a generator for now, since only ResMed is supported. A machine that Z later gets a card for goes through the same steps, one family at a time.
 
 ## Building and running it
 
@@ -113,6 +207,7 @@ Before calling a file done, grep for `on purpose | deliberately | rather than | 
 - **Never `git commit` unless asked, and a commit instruction covers only the work that existed when it was given.** Do the work, leave it uncommitted, say what changed in prose, stop. The uncommitted tree is the review surface; a diff artifact or a summary page is not a substitute.
 - **Use the `Edit` tool for changes to an existing file, never a script that rewrites it.** Z reviews side by side in the IDE diff view as each edit lands, and a rewritten file gives that view nothing to show. An announced mechanical rename with `sed` is the one exception. Reaching for a script is a sign the change is too big to review in one go.
 - **One change at a time.** Finish one item, say exactly what changed, what the agent checked and what is left for Z to check, then stop. Keep a list of deferred items and restate it at the end of each turn.
+- **Agents only with Z's go-ahead**, on Sonnet, at most four at a time (Z, 2026-09-19). An agent's report is model output, not a finding: before anything from it is used, its load-bearing claims are checked against their primary sources, and what the check found wrong is recorded with the rest.
 - **Do not overstate severity.** "Bug" is for behavior that is wrong, not behavior that is non-deterministic, unidiomatic or different from before. Describe what was measured and let Z judge; a preference is offered as a preference.
 
 ## How decisions are made
@@ -128,8 +223,8 @@ Before calling a file done, grep for `on purpose | deliberately | rather than | 
 What a person cannot do is re-check, after every change, everything that was checked before, and an agent produces changes faster than anyone can. Three things cover that, and none of them takes the testing away from Z:
 
 1. **The promise is enforced by the page, not by care.** The Content-Security-Policy described under *Security* makes the browser refuse any outbound connection. It is in place before the first feature that reads a file.
-2. **A written checklist, run by Z before each release**, in `CHECKLIST.md` at the repository root: what to check, and what a failure looks like. A check with no stated failure is not a check. When a change adds behavior worth protecting, propose its checklist entry with the change.
-3. **A record of every verification, in Z's words**, in `VERIFICATION.md` at the repository root: what was checked, on what data, at which commit. Testing that is not written down is invisible to the reviewer this project is for. **The agent never writes that Z verified something**, and never presents its own checks as Z's.
+2. **A written checklist, run by Z before each release**, in `dev/CHECKLIST.md`: what to check, and what a failure looks like. A check with no stated failure is not a check. When a change adds behavior worth protecting, propose its checklist entry with the change.
+3. **A record of every verification, in Z's words**, in `dev/VERIFICATION.md`: what was checked, on what data, at which commit. Testing that is not written down is invisible to the reviewer this project is for. **The agent never writes that Z verified something**, and never presents its own checks as Z's.
 
 What the agent does before handing a change over:
 
