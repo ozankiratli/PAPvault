@@ -37,7 +37,7 @@ Real data is anything from a device's SD card or an export of one, and anything 
 - **Format knowledge comes from published specifications and open-source readers**, cited, not from inspecting a real card.
 - **Data for development and checking is synthetic.** A committed generator builds it, with Z's help, and nothing in it is derived from real data.
 - **Nothing derived from real data goes into the repository, a development note, a commit message, a published artifact or a screenshot** unless Z has approved that item by name.
-- `CPAP_old/` stays gitignored, and nothing under it is ever staged.
+- `CPAP_old/` stays gitignored, and nothing under it is ever staged. `.gitignore` also ignores every EDF file and the folders and files of a ResMed card, wherever they appear, synthetic output included; nothing it ignores is ever added with `git add -f`.
 
 ## Security
 
@@ -51,6 +51,13 @@ Z, 2026-09-18: *"we should be careful with JS. It should be completely open sour
 - **Every line of JavaScript is open source and readable.** Libraries are few, each approved by Z by name, stored in the repository unminified and pinned to a version, under a license compatible with GPL-3.0. Nothing is loaded from a CDN or any other host.
 - **The build is one short script on the Python standard library.** No package manager, so no dependency tree stands behind what ships. It inlines everything into one self-contained HTML file, and that file is both what the site serves and the offline download. The same input gives the same bytes, and each release publishes the file's checksum, so anyone can rebuild it and compare.
 - **Only Z publishes.** Z is the sole maintainer, with two-factor authentication on the account, and the agent never pushes (Z, 2026-09-18).
+
+## Building and running it
+
+- `python3 build.py` writes `dist/index.html` and prints its SHA-256. `dist/` is build output and is not tracked.
+- Opening `dist/index.html` straight from disk is the offline page, and needs no server.
+- **When the agent needs a server, it uses port 8765** (Z, 2026-09-18): `python3 -m http.server 8765 --bind 127.0.0.1 --directory dist`. It records the PID when it starts one, stops only that PID, and never touches a server it did not start.
+- **A browser the agent starts for a check is headless, with its own temporary profile directory, and exits on its own.** It never attaches to a browser Z is using.
 
 ## Comments: what the code does, never why we chose it
 
