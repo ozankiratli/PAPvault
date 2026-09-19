@@ -63,3 +63,15 @@ Then, on the calendar's hint: *""Each day runs from 12:00 to 12:00 the next day.
 - **Buttons are glyphs**, and their names appear on hover.
 
 And on the charting library: *"We should settle the library with data. Build scratch page but 2 plots each and with a line on x-axis to track the mouse so the user can follow multiple plots at the same time."* What the comparison found is in `page-layout.md`.
+
+## Added later on 2026-09-19, against `f7dd53f`
+
+After the survey of other machines, Z set PAPvault's place beside OSCAR: *"We should not take OSCAR's work. We won't support DreamStation 2 yet. We can work on it if I get my hands on the machine at some point. The same goes for Transcend. [...] Again. The aim is not to replace OSCAR. We can even direct people to use it for long term storage. This is to skip that requirement."*
+
+- **PAPvault is for looking at data without installing anything.** OSCAR remains the tool for keeping it long term, and PAPvault may say so.
+- **The Philips DreamStation 2 and the Transcend machines are not supported** until Z can test on one. The DreamStation 2 encrypts its card, and what is public about reading it is OSCAR's own work; nothing public describes the Transcend's card at all.
+- **What PAPvault takes from other projects** is knowledge and never code; the rule is in `CLAUDE.md`, and every source is listed in `SOURCES.md`.
+
+Z also asked whether OSCAR sends anything anywhere. The agent read OSCAR's source at commit `64c5e90a` (2026-07-13) of `gitlab.com/CrimsonNape/OSCAR-code`. The only network code in it is an update check in `oscar/checkupdates.cpp`: a plain-HTTP request for the fixed address `http://apneaboard.net/OSCAR/versions.xml` (line 69), with nothing attached. It is on by default and runs at most every 14 days (`oscar/SleepLib/appsettings.cpp`, lines 68 and 69); a test build forces it on and caps the interval at 7 days (`oscar/main.cpp`, lines 687 to 692); it can be switched off in the preferences, and removed from a build with `NO_CHECKUPDATES`, which `oscar/oscar.pro` leaves commented out at line 46. Like any request it tells the server an address and that someone is running OSCAR, but it carries no therapy data. Z: *"OK that's what I thought so it is safe to refer people to OSCAR for a better system."*
+
+The survey had turned up a ResMed support article on myAir and patients who sleep through noon, as a possible official source for the CPAP day. Z ruled it out, and myAir with it: *"SD card stores the data. That's the source we rely on, not ResMed's buggy systems. MyAir related issues are no concern to our purposes."* The CPAP day rests on Z's definition and on the card, whose `DATALOG` folders are named by the date each night began.

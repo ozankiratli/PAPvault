@@ -2,6 +2,8 @@
 
 PAPvault is a web platform for viewing PAP therapy data (CPAP, APAP, BiPAP) interactively, where **the data never leaves the user's machine**. It revives an abandoned R/Shiny prototype, which sits untracked in `CPAP_old/`. It is a single page in HTML, CSS and JavaScript, served from GitHub Pages and possibly also offered as one file that runs offline (Z, 2026-09-18). A **CPAP day** runs from 12:00 on its date to 12:00 on the next calendar day, and is not a calendar day (Z, 2026-09-18 and 2026-09-19); every day the page shows or selects is a CPAP day.
 
+PAPvault is not a replacement for OSCAR, the open-source desktop program for the same data. Z, 2026-09-19: *"Again. The aim is not to replace OSCAR. We can even direct people to use it for long term storage. This is to skip that requirement."* PAPvault is for a person who wants to look at their data without installing anything. Not supported for now: the Philips DreamStation 2 and Transcend machines, until Z can test on one (Z, 2026-09-19).
+
 PAPvault is also a showcase. Z calls the method **human-in-the-steering-wheel** development, as opposed to human-in-the-loop: the human drives, rather than approving what the agent drives. Z, 2026-09-18: *"I want the reviewer to look at this and say, 'yeah AI agents can be used responsibly, when developing a health related app.'"* So the record of how PAPvault is built is part of what it delivers. Write every rule, note and commit message for a reviewer who arrives skeptical and checks.
 
 ## The promise is the product
@@ -24,6 +26,8 @@ The page governs only what the page sends. The host is GitHub Pages, and GitHub'
 Z, 2026-09-18: *"We will not make any conclusions beyond what the PAP machine declares. Again it is a matter of principle. It will just display the data."*
 
 PAPvault shows what the device recorded and what the device itself declares, and adds no judgment of its own. However helpful it looks, that rules out a severity band or a "normal range", a good or bad color on a value, a goal line, a trend verdict, a score, and any advice. Where the device declares something -- an event, a flag, a figure of its own -- PAPvault shows it as the device's.
+
+What the device declares is what is on its card. A manufacturer's app or cloud portal, such as ResMed's myAir, is not a source, and how it behaves is no concern of PAPvault's (Z, 2026-09-19).
 
 ## Real device data never enters the agent's context
 
@@ -51,6 +55,16 @@ Z, 2026-09-18: *"we should be careful with JS. It should be completely open sour
 - **Every line of JavaScript is open source and readable.** Libraries are few, each approved by Z by name, stored in the repository unminified and pinned to a version, under a license compatible with GPL-3.0. Nothing is loaded from a CDN or any other host. Approved so far: uPlot 1.6.32, MIT, for the plots (Z, 2026-09-19).
 - **The build is one short script on the Python standard library.** No package manager, so no dependency tree stands behind what ships. It inlines everything into one self-contained HTML file, and that file is both what the site serves and the offline download. The same input gives the same bytes, and each release publishes the file's checksum, so anyone can rebuild it and compare.
 - **Only Z publishes.** Z is the sole maintainer, with two-factor authentication on the account, and the agent never pushes (Z, 2026-09-18).
+
+## What we take from other projects
+
+Z, 2026-09-19: *"We should not use code directly from OSCAR. I think it would be wrong. I don't think it is wrong to use the knowledge. We will display all the source of knowledge we collected in SOURCES.md."*
+
+- **No code from OSCAR or any other project goes into PAPvault**, whether copied or translated into JavaScript line by line. Every line is written here, from what is known about the format. The libraries approved under *Security* are the one exception: other people's code, carried whole, under their own licenses, and credited.
+- **Knowledge may be used**: what a file holds, where, in what order and in what units. Every source of it, whether a specification, a manufacturer's document, another project's code or documentation, or a forum, is listed in `SOURCES.md` at the repository root, with what was learned from it.
+- **A fact taken from another project is cited in the development notes** to the repository, the file and the commit it was read at, so anyone can check it.
+- **A project with no license is read for facts only**, and none of its text is reproduced.
+- **Where one project is the only source for a fact, it cannot also be the check on it.** A reader built from OSCAR's description of a format and then compared with OSCAR has been compared with itself. The notes say where that is the case.
 
 ## Building and running it
 

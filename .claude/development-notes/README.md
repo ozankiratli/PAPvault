@@ -51,3 +51,4 @@ One file per subject, not per source file: the reasoning crosses file boundaries
 | `empty-page.md` | the page, the build and the local server as first built, and what the agent checked before handing them over |
 | `page-layout.md` | the card layout and the calendar, the decisions in them, and the charting libraries measured before the choice |
 | `platform-traps.md` | kept current: the shell and tooling traps that produced a wrong result once |
+| `machine-survey.md` | which PAP machines exist, where each keeps its data and in what format, what the survey got wrong, and what could be supported |

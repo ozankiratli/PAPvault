@@ -51,3 +51,7 @@ So a comparison against it is one of Z's own checks, recorded in Z's words like 
 The per-day summaries brought `STR.edf` back into scope. The device declares its own per-day figures, and on the AirSense 10 they are in that file; the question was whether the summary view shows those, or recomputes them from the session files. Z: *"Let's have both side by side during development, my experience was they matched but we will see. It's been a while, so I might be misremembering."*
 
 So during development `STR.edf` is read, and each figure the device declares is shown next to the same figure recomputed from the session files. The prototype is ground truth for neither side, since `prepare_data()` does not read `STR.edf`. The two sides are independent of each other, though: one is the device's own arithmetic, the other is PAPvault's over what the device recorded. Where they agree, that is evidence for both; where they differ, the difference is the finding.
+
+## Added 2026-09-19, against `f7dd53f`
+
+Z, on the files the prototype does not read: *"crc and journal.dat are not needed. We should not be concerned with those."* So the `.crc` file beside each EDF file and `Journal.dat` are not read. The survey of 2026-09-19 found no source, OSCAR included, that documents either format, and neither is pursued.
