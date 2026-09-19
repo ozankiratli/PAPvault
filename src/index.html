@@ -14,18 +14,112 @@
 <div id="app" hidden>
   <header class="topbar">
     <h1 class="brand">PAPvault</h1>
-    <div class="controls">
-      <button type="button" id="date-control" disabled>Date</button>
-      <button type="button" id="time-control" disabled>Time</button>
-      <button type="button" id="theme-toggle">Dark mode</button>
+    <div class="topbar-actions">
+      <button type="button" class="icon-button tip" id="open-calendar" data-dialog="calendar-dialog" aria-label="Calendar" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+      </button>
+      <button type="button" class="icon-button tip" data-dialog="folder-dialog" aria-label="Select Folder">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></svg>
+      </button>
+      <button type="button" class="icon-button tip" data-dialog="manual-dialog" aria-label="Manual">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 6.5C10.5 5.3 8.2 4.8 4 5v13c4.2-.2 6.5.3 8 1.5 1.5-1.2 3.8-1.7 8-1.5V5c-4.2-.2-6.5.3-8 1.5zM12 6.5v13"/></svg>
+      </button>
+      <button type="button" class="icon-button tip" data-dialog="settings-dialog" aria-label="Settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+      </button>
+      <button type="button" class="icon-button tip" id="theme-toggle">
+        <svg id="theme-icon-dark" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+        <svg id="theme-icon-light" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2.5V5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg>
+      </button>
     </div>
   </header>
-  <main>
-    <p class="empty">No data loaded.</p>
+  <main class="cards">
+    <section class="card summary-card" aria-labelledby="summary-title">
+      <div class="summary">
+        <h2 id="summary-title" class="card-title">Summary</h2>
+        <p class="selection" id="selection-label"></p>
+        <p class="empty">No data loaded.</p>
+      </div>
+      <div class="calendar-slot" id="calendar-card-slot">
+        <div class="calendar" id="calendar" role="group" aria-label="Choose a CPAP day or a range of them">
+          <div class="calendar-head">
+            <button type="button" class="calendar-nav tip" id="calendar-prev" aria-label="Previous month">&lsaquo;</button>
+            <button type="button" class="calendar-month" id="calendar-month" aria-label="Choose a month"></button>
+            <button type="button" class="calendar-nav tip" id="calendar-next" aria-label="Next month">&rsaquo;</button>
+          </div>
+          <div class="calendar-grid" id="calendar-grid"></div>
+          <p class="calendar-hint">Click a day, then another to select a range. Days run from noon to noon, so each night belongs to the date it began.</p>
+        </div>
+      </div>
+    </section>
+    <section class="card plots-card" aria-labelledby="plots-title">
+      <h2 id="plots-title" class="card-title">Plots</h2>
+      <p class="empty">Plots appear here once data is loaded.</p>
+    </section>
   </main>
   <footer>
     <a href="https://github.com/ozankiratli/PAPvault" rel="noreferrer">Source code</a>
   </footer>
+
+  <dialog class="modal" id="calendar-dialog" aria-labelledby="calendar-dialog-title">
+    <div class="modal-body">
+      <div class="modal-head">
+        <h2 id="calendar-dialog-title">Calendar</h2>
+        <button type="button" class="modal-close tip" aria-label="Close">&times;</button>
+      </div>
+      <div class="calendar-slot" id="calendar-dialog-slot"></div>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="month-dialog" aria-labelledby="month-dialog-year">
+    <div class="modal-body">
+      <div class="modal-head">
+        <div class="year-nav">
+          <button type="button" class="calendar-nav tip" id="year-prev" aria-label="Previous year">&lsaquo;</button>
+          <h2 id="month-dialog-year"></h2>
+          <button type="button" class="calendar-nav tip" id="year-next" aria-label="Next year">&rsaquo;</button>
+        </div>
+        <button type="button" class="modal-close tip" aria-label="Close">&times;</button>
+      </div>
+      <div class="month-grid" id="month-grid"></div>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="folder-dialog" aria-labelledby="folder-dialog-title">
+    <div class="modal-body">
+      <div class="modal-head">
+        <h2 id="folder-dialog-title">Select Folder</h2>
+        <button type="button" class="modal-close tip" aria-label="Close">&times;</button>
+      </div>
+      <p>Choose the folder of your PAP device's SD card, or a copy of it.</p>
+      <p>PAPvault reads the files in this browser. Nothing is uploaded.</p>
+      <p class="empty">Reading a folder is not built yet.</p>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="manual-dialog" aria-labelledby="manual-dialog-title">
+    <div class="modal-body">
+      <div class="modal-head">
+        <h2 id="manual-dialog-title">Manual</h2>
+        <button type="button" class="modal-close tip" aria-label="Close">&times;</button>
+      </div>
+      <p class="empty">The manual is not written yet.</p>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="settings-dialog" aria-labelledby="settings-dialog-title">
+    <div class="modal-body">
+      <div class="modal-head">
+        <h2 id="settings-dialog-title">Settings</h2>
+        <button type="button" class="modal-close tip" aria-label="Close">&times;</button>
+      </div>
+      <fieldset class="setting">
+        <legend>Time format</legend>
+        <label><input type="radio" name="time-format" value="12"> 12-hour, like 1:30 PM</label>
+        <label><input type="radio" name="time-format" value="24"> 24-hour, like 13:30</label>
+      </fieldset>
+    </div>
+  </dialog>
 </div>
 <script src="app.js"></script>
 </body>

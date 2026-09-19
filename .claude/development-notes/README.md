@@ -16,7 +16,7 @@ They are public (Z, 2026-09-18), and so is `CLAUDE.md` at the repository root, t
 
 A note is never rewritten to follow the code. It may gain a new finding at the end, dated; an old description is never corrected to match today's code, because a note that has been kept in step can no longer be dated. So a present-tense sentence inside a note describes the code at that note's date. Where a note and the user documentation disagree, the documentation is right and the note is history.
 
-**Two files are exceptions, and each says so at the top:** this index, and the file of platform traps once there is one, which is appended to as traps are found, with a date on each entry, because a trap does not expire. Both are kept current.
+**Two files are exceptions, and each says so at the top:** this index, and `platform-traps.md`, which is appended to as traps are found, with a date on each entry, because a trap does not expire. Both are kept current.
 
 **A note hands its reader the command that would falsify it**, rather than asserting a count or a mechanism in prose. When PoolSeqFlow audited its own notes, the stale ones were those that asserted a mechanism with no way to check it from the page.
 
@@ -49,3 +49,5 @@ One file per subject, not per source file: the reasoning crosses file boundaries
 | `product-brief.md` | the brief as Z first gave it and what was settled that day: one page on GitHub Pages, the date and time selection, a day as noon to noon, display without conclusions, and the stack |
 | `security.md` | what is protected and from what, why the page is one file with a hashed `<meta>` policy, and what the design does not cover |
 | `empty-page.md` | the page, the build and the local server as first built, and what the agent checked before handing them over |
+| `page-layout.md` | the card layout and the calendar, the decisions in them, and the charting libraries measured before the choice |
+| `platform-traps.md` | kept current: the shell and tooling traps that produced a wrong result once |

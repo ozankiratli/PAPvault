@@ -51,3 +51,27 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 **How:** in a clean checkout of the release commit, run `python3 build.py` twice, then `curl -sS <PAPvault URL> | sha256sum`.
 
 **Failure:** the two builds print different checksums, or the served file's checksum differs from the build's.
+
+## `calendar-select` -- the calendar selects the days it says
+
+**Protects:** that the period the summary describes is the period that was chosen, with a day running noon to noon.
+
+**How:** open the page and note the preselected day and the time; click a day other than the preselected one; click a later day in the same month; click once more; then go back a month and click a day there; then select a range that contains the Sunday in early November when daylight saving time ends. Open the month picker from the month name, step back a year, and choose a month.
+
+**Failure:** the preselected day is not the CPAP day containing the current time, so before noon it is not yesterday's date, and from noon it is not today's; the first click selects a range rather than that one day at 12:00 to the next day at 12:00; after the second click, the shaded days, the two ends or the day count disagree with the days clicked; the third click does not start over; the range picked in reverse across the month boundary is wrong; the range across the time change shows a day count that is not a whole number or is off by one; or the month picker does not move the calendar to the month chosen.
+
+## `time-format` -- times follow the reader's choice
+
+**Protects:** that every time on the page is shown the way the reader chose, and that the choice lasts.
+
+**How:** in a fresh private window, open the page and note the time format it starts in; open Settings and switch to the other format; reload.
+
+**Failure:** the page does not start in the format the browser's language uses, 12-hour for United States English and 24-hour for most others; after switching, any time on the page is still in the old format; or after the reload the choice is lost. A private window that blocks storage may lose it on reload, which is not a failure.
+
+## `narrow-calendar` -- the calendar is reachable on a narrow screen
+
+**Protects:** that below 650 pixels wide the calendar moves into a dialog rather than disappearing, and keeps its selection.
+
+**How:** select a range on a wide window; narrow the window below 650 pixels; open Calendar from the top bar; widen the window again.
+
+**Failure:** below 650 pixels the Calendar button is missing or the calendar still shows in the card; the dialog's calendar does not show the range selected before; or after widening, the calendar is not back in the card.

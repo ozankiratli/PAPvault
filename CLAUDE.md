@@ -1,6 +1,6 @@
 # Working on PAPvault
 
-PAPvault is a web platform for viewing PAP therapy data (CPAP, APAP, BiPAP) interactively, where **the data never leaves the user's machine**. It revives an abandoned R/Shiny prototype, which sits untracked in `CPAP_old/`. It is a single page in HTML, CSS and JavaScript, served from GitHub Pages and possibly also offered as one file that runs offline (Z, 2026-09-18). A day is the device's day, noon to noon, under the date on which it starts.
+PAPvault is a web platform for viewing PAP therapy data (CPAP, APAP, BiPAP) interactively, where **the data never leaves the user's machine**. It revives an abandoned R/Shiny prototype, which sits untracked in `CPAP_old/`. It is a single page in HTML, CSS and JavaScript, served from GitHub Pages and possibly also offered as one file that runs offline (Z, 2026-09-18). A **CPAP day** runs from 12:00 on its date to 12:00 on the next calendar day, and is not a calendar day (Z, 2026-09-18 and 2026-09-19); every day the page shows or selects is a CPAP day.
 
 PAPvault is also a showcase. Z calls the method **human-in-the-steering-wheel** development, as opposed to human-in-the-loop: the human drives, rather than approving what the agent drives. Z, 2026-09-18: *"I want the reviewer to look at this and say, 'yeah AI agents can be used responsibly, when developing a health related app.'"* So the record of how PAPvault is built is part of what it delivers. Write every rule, note and commit message for a reviewer who arrives skeptical and checks.
 
@@ -48,7 +48,7 @@ Z, 2026-09-18: *"we should be careful with JS. It should be completely open sour
 - **The Content-Security-Policy is the second wall.** It is a `<meta>` tag, because GitHub Pages cannot set response headers. Scripts and styles run only if their hash is in the policy, and the build computes the hashes from the files it inlines. No inline event handlers, no `eval`, and no outbound connection of any kind. An injection that got past the first rule would still not run, and could send nothing. Any change to the policy is raised with Z by name. Alongside it, `<meta name="referrer" content="no-referrer">`.
 - **The page refuses to run inside a frame.** A `<meta>` policy cannot forbid framing, so the page checks for itself.
 - **Nothing may need a header GitHub Pages cannot send.** Cross-origin isolation above all: no `SharedArrayBuffer`, no threaded WebAssembly, and no service worker to add headers back, which would also break the offline file. A feature that would need one is raised with Z, not worked around.
-- **Every line of JavaScript is open source and readable.** Libraries are few, each approved by Z by name, stored in the repository unminified and pinned to a version, under a license compatible with GPL-3.0. Nothing is loaded from a CDN or any other host.
+- **Every line of JavaScript is open source and readable.** Libraries are few, each approved by Z by name, stored in the repository unminified and pinned to a version, under a license compatible with GPL-3.0. Nothing is loaded from a CDN or any other host. Approved so far: uPlot 1.6.32, MIT, for the plots (Z, 2026-09-19).
 - **The build is one short script on the Python standard library.** No package manager, so no dependency tree stands behind what ships. It inlines everything into one self-contained HTML file, and that file is both what the site serves and the offline download. The same input gives the same bytes, and each release publishes the file's checksum, so anyone can rebuild it and compare.
 - **Only Z publishes.** Z is the sole maintainer, with two-factor authentication on the account, and the agent never pushes (Z, 2026-09-18).
 
@@ -88,7 +88,7 @@ Before calling a file done, grep for `on purpose | deliberately | rather than | 
 `.claude/development-notes/` is the record of how PAPvault got here, one file per subject rather than per source file.
 
 - **Every note opens with `**Written <date>, against the tree at <hash>.**`** and is never rewritten to follow the code. Appending a new, dated finding is allowed; correcting an old description to match today's code is not. Where a note and the user documentation disagree, the documentation is right and the note is history.
-- **Two files are exceptions and say so at the top:** the index, `README.md`, and a file of platform traps that is appended to as they are found. Both are kept current.
+- **Two files are exceptions and say so at the top:** the index, `README.md`, and `platform-traps.md`, which is appended to as traps are found. Both are kept current.
 - **Durable knowledge goes here, not only into the agent's memory.** Memory is private to one account and nobody can review it; a note is a reviewable artifact that travels with the checkout. The memory entry is a one-line pointer to the note.
 - **A note hands its reader the command that would falsify it**, rather than asserting a count or a mechanism in prose.
 - **This file and the notes are public** (Z, 2026-09-18). Write both for a reader outside the project, and never put a value from real data in either.
@@ -127,4 +127,4 @@ What the agent does before handing a change over:
 
 ## House style
 
-American English everywhere. ASCII only in the text we write -- `--`, `...`, `->`, straight quotes -- except data we did not author, a character that is the subject of the sentence, a glyph the application renders, and a literal whose other half a text tool cannot reach. No hard wrapping in markdown: one line per paragraph and per list item.
+American English everywhere, and interface text reads as American prose: words over notation where both work, so "noon to noon", not "12:00 to 12:00" (Z, 2026-09-19). ASCII only in the text we write -- `--`, `...`, `->`, straight quotes -- except data we did not author, a character that is the subject of the sentence, a glyph the application renders, and a literal whose other half a text tool cannot reach. No hard wrapping in markdown: one line per paragraph and per list item.

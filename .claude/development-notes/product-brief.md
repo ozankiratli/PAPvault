@@ -36,3 +36,30 @@ GitHub's documentation, read on 2026-09-18 (*About GitHub Pages*, under "Data co
 So PAPvault's own code can collect nothing and the host still records that a visit happened. The page cannot change that. What it can do is describe itself accurately: PAPvault collects nothing itself, and its host logs visits.
 
 Z asked whether another host would be better. The agent's answer was that every host sees the request for the page, so changing hosts changes whose logs and not whether there are logs. GitHub Pages also serves the repository as it is, so every deployed version traces to a public commit. Its real cost is that it cannot set response headers, which `security.md` deals with. Z: *"That's why I thought GitHub pages was the right call. It stays."*
+
+## Added 2026-09-19, against `690129c`
+
+Z, after seeing the empty page: *"Let's build it first and then we will decide how to deploy. For the light mode, dark mode let's switch to glyphs, or glyph + "Light/Dark". For the UI. I'm thinking of a card design. Top card is the summary stats, for the period people choose (a day or multiple days as long as people want). On the right side of that card a monthly calendar view. User chooses what they want to display there. Below that the plots etc. As I was building them but all aligned together and hovering in the x-axis shows a tracking line on all plots so the user can see what was happening in other plots too. The time can be subsettable using plotly's select feature, but we should limit it to x-axis otherwise it becomes kind of stupid. lol."*
+
+That changed the brief in three places:
+
+- **The calendar moved into the page.** It sits on the right of the top card, which shows the summary for whatever period is chosen, one day or any number of them.
+- **The time range is selected on the plots**, by dragging along the x-axis only, not with a picker of its own.
+- **The plots are aligned on one time axis**, and hovering shows a tracking line across all of them at once.
+
+The deploy is decided after the page is built. And before the format notes, Z asked for a survey of the other machines: *"how about we try to find the different formats and how the data is collected in different machines before we move on to format notes."*
+
+Later the same day, after seeing the cards: *"In the top bar let's add 2 buttons that will open modals. 1) Select Folder, 2) Manual (we'll deal with the manual later). In the narrow view (under 650 px), let's move the calendar to the top available through a button and a modal box. Let's make the calendar more responsive, clicking Month opens a modal with year at the top and months that can be selected instead. Default the day to the browser's day. We need to define a CPAPday separately from calendar day."*
+
+- **The top bar opens dialogs**: Select Folder, and a Manual whose content comes later.
+- **Below 650 pixels the calendar leaves the card** and opens from a button in the top bar.
+- **The month name opens a month picker**, with the year at its top.
+- **A CPAP day is its own thing**, not a calendar day: 12:00 on its date to 12:00 the next day, as defined above under *What a day is*. The page opens on the CPAP day that contains the moment it is opened, so before noon that is the day named by yesterday's date.
+
+Then, on the calendar's hint: *""Each day runs from 12:00 to 12:00 the next day." (is unclear also we'll use American prose, we can build this project's version of americanize.py under folder dev/ if needed) We should let the user choose 12h/24h. We might want to add a settings button with just the glyph, to open a modal, so we can give the user the choice to display everything in the way they want, we can slowly develop settings. I think let's change all the buttons to only glyphs and the text shows up only on hover."*
+
+- **Interface text is American prose**: "noon to noon", not "12:00 to 12:00".
+- **Time is shown in 12-hour or 24-hour form**, the reader's choice, from a Settings dialog that is to grow one choice at a time.
+- **Buttons are glyphs**, and their names appear on hover.
+
+And on the charting library: *"We should settle the library with data. Build scratch page but 2 plots each and with a line on x-axis to track the mouse so the user can follow multiple plots at the same time."* What the comparison found is in `page-layout.md`.
