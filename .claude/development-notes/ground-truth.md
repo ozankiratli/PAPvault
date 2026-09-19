@@ -45,3 +45,9 @@ Agreement cannot show anything both sides decide the same way. **Time is the cle
 Only where the real data is: on Z's machine, run by Z, or by a script Z has approved whose output is a verdict and never a value. Nothing it produces enters the repository.
 
 So a comparison against it is one of Z's own checks, recorded in Z's words like any other. What can be shared, and re-run by anyone, is the synthetic data, where what a case should show is derived from how it was built.
+
+## Added later on 2026-09-18, against `4db9efc`
+
+The per-day summaries brought `STR.edf` back into scope. The device declares its own per-day figures, and on the AirSense 10 they are in that file; the question was whether the summary view shows those, or recomputes them from the session files. Z: *"Let's have both side by side during development, my experience was they matched but we will see. It's been a while, so I might be misremembering."*
+
+So during development `STR.edf` is read, and each figure the device declares is shown next to the same figure recomputed from the session files. The prototype is ground truth for neither side, since `prepare_data()` does not read `STR.edf`. The two sides are independent of each other, though: one is the device's own arithmetic, the other is PAPvault's over what the device recorded. Where they agree, that is evidence for both; where they differ, the difference is the finding.

@@ -46,3 +46,5 @@ One file per subject, not per source file: the reasoning crosses file boundaries
 |---|---|
 | `ground-rules.md` | how the working rules in `CLAUDE.md` were set: what came across from PoolSeqFlow, what was left behind, and what PAPvault added |
 | `ground-truth.md` | the R prototype as the reference for reading a real card: what it covers, and what agreement with it can and cannot show |
+| `product-brief.md` | the brief as Z first gave it and what was settled that day: one page on GitHub Pages, the date and time selection, a day as noon to noon, display without conclusions, and the stack |
+| `security.md` | what is protected and from what, why the page is one file with a hashed `<meta>` policy, and what the design does not cover |

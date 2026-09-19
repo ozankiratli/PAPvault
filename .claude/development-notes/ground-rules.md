@@ -43,3 +43,7 @@ Four rules have no direct counterpart in PoolSeqFlow, and all four come from wha
 - No telemetry and no collection of any data, as quoted above.
 - Z tests every change personally, and there is no automated test suite for now. Regression is covered by the three measures above.
 - Real data is not touched for now, and the R prototype's reading of it is the ground truth. What that covers is in `ground-truth.md`.
+
+## Added later on 2026-09-18, against `4db9efc`
+
+Z ruled that PAPvault displays what the device declares and concludes nothing beyond it, so it shows no threshold at all. That left *A clinical number needs a checked source* covering what a value means -- its unit, what a flag or an event code stands for -- rather than where a line is drawn. The brief this came with is in `product-brief.md`.
