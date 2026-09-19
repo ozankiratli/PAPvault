@@ -1,0 +1,104 @@
+# Working on PAPvault
+
+PAPvault is a web platform for viewing PAP therapy data (CPAP, APAP, BiPAP) interactively, where **the data never leaves the user's machine**. It revives an abandoned R/Shiny prototype, which sits untracked in `CPAP_old/`. No stack has been chosen yet; the sections below that depend on one say so.
+
+PAPvault is also a showcase. Z calls the method **human-in-the-steering-wheel** development, as opposed to human-in-the-loop: the human drives, rather than approving what the agent drives. Z, 2026-09-18: *"I want the reviewer to look at this and say, 'yeah AI agents can be used responsibly, when developing a health related app.'"* So the record of how PAPvault is built is part of what it delivers. Write every rule, note and commit message for a reviewer who arrives skeptical and checks.
+
+## The promise is the product
+
+Z, 2026-09-18: *"build a web platform that people can view their data interactively without uploading their data to internet."*
+
+Z, 2026-09-18: *"We won't have any telemetry allowed on this website, it is a trust issue, so no analytics no collection of any data."*
+
+These are the requirements the rest of the design answers to, and they are two different things:
+
+- **No network request the application makes may carry user data, or anything derived from it.**
+- **The site collects nothing about the people who use it.** No analytics, no telemetry, no error reporting, no usage counts. The reason is trust, so "anonymized" and "aggregated" are not exceptions.
+
+Both are invariants, and an invariant held by care is not held, so the page enforces them itself (the first point under *How to know a change works*). Until it does, **any network request the application makes is a finding to raise with Z, not a detail to settle in passing** -- a fetched font, a CDN script, a request to any host that is not the one serving the page. Even with nothing attached, a request to a third party tells it that someone is using PAPvault, and deciding whether that is acceptable is Z's call.
+
+The page governs only what the page sends. What the server hosting it records is a separate question, settled with hosting.
+
+## Real device data never enters the agent's context
+
+**The agent's context is not local.** Reading a file sends its contents to Anthropic's servers. A project whose whole promise is that health data stays on its owner's machine cannot be built by sending anyone's health data somewhere else, so the rule the application keeps, the development keeps too.
+
+Real data is anything from a device's SD card or an export of one, and anything computed from it: `CPAP_old/AirSense10/`, `CPAP_old/Archive/`, and any path Z names. File names and sizes are not the problem; the contents are. The headers carry identifiers and the signals are the therapy record.
+
+- **Never read it into the conversation.** No `Read`, `cat`, `head`, `strings` or `hexdump`, and no `grep` or script whose output prints its contents.
+- **A local script over real data needs Z's go-ahead first**, and its output carries neither an identifier nor a per-night value. Signal labels, sampling rates, record counts and durations are structure; a pressure, a leak rate or an event count is the record.
+- **The ground truth for reading a real card is the R prototype**, `prepare_data()` in `CPAP_old/data_prep.R` (Z, 2026-09-18). A comparison against it runs on Z's machine, and what reaches the conversation is a verdict, never a value. It reaches only the files that function reads; the rest of a card has no ground truth yet.
+- **Format knowledge comes from published specifications and open-source readers**, cited, not from inspecting a real card.
+- **Data for development and checking is synthetic.** A committed generator builds it, with Z's help, and nothing in it is derived from real data.
+- **Nothing derived from real data goes into the repository, a development note, a commit message, a published artifact or a screenshot** unless Z has approved that item by name.
+- `CPAP_old/` stays gitignored, and nothing under it is ever staged.
+
+## Comments: what the code does, never why we chose it
+
+**Every comment clause is either a description of the code below it or a design decision. Descriptions stay, in one line. Decisions move to `.claude/development-notes/` and leave the source.**
+
+The unit is the clause, not the comment. The usual failure is a comment that opens with a real description and smuggles a justification in after it. Write what the code does, stop, and check whether what you were about to add next is a decision.
+
+**Why:** a design decision left in a comment reads to a later session as a current constraint, and gets argued from against what is actually being asked. Z, on PoolSeqFlow, 2026-08-30: *"In multiple occasions, the previous design decisions have skewed your interpretation of my asks, we had to spend way too much time on simple tasks."*
+
+Not every "why" is a decision. The cut is whether the code becomes **inexplicable** without the line, or merely **unjustified**. A constraint that makes an otherwise pointless line explicable is what the code does, and stays. A constraint that defends one working choice over another is a decision, and goes.
+
+Before calling a file done, grep for `on purpose | deliberately | rather than | because | would otherwise | so that | which is why`. Each hit is a candidate, not a verdict, and the grep is never made a pass/fail gate: a hard failure trains the next session to reword around the words instead of removing the decision.
+
+| Where | What |
+|---|---|
+| the source | what the code below does, what it returns, a coupling or constraint invisible from here |
+| the user documentation | anything that changes what a displayed number **means**, or that a person reading their own data needs. It is authoritative, and nothing in it is repeated in the source. Where it lives is decided with the stack. |
+| `.claude/development-notes/` | how it got here: design churn, alternatives dropped, measurements, who decided what and when |
+
+**No source file references the notes.** A note is dated and not updated to follow the code, so a pointer to one imports a description of the code as it used to be.
+
+**Mid-feature is not the deadline, but the feature has one.** A comment may carry more than the code needs while a stage is open; every stage ends with a pass over the comments it added. Put that pass in the stage's checklist when the stage starts, or it is the thing that gets skipped.
+
+**Development tooling, the synthetic data generator among it, follows the opposite rule: keep everything but abandoned ideas.** There the reasoning is the content. A measurement with no account of what it measured cannot be acted on, and a synthetic case with no record of what it was built to exercise gets deleted as arbitrary. The one thing to cut is an approach that was dropped, described as though it were still how things work.
+
+## Development notes
+
+`.claude/development-notes/` is the record of how PAPvault got here, one file per subject rather than per source file.
+
+- **Every note opens with `**Written <date>, against the tree at <hash>.**`** and is never rewritten to follow the code. Appending a new, dated finding is allowed; correcting an old description to match today's code is not. Where a note and the user documentation disagree, the documentation is right and the note is history.
+- **Two files are exceptions and say so at the top:** the index, `README.md`, and a file of platform traps that is appended to as they are found. Both are kept current.
+- **Durable knowledge goes here, not only into the agent's memory.** Memory is private to one account and nobody can review it; a note is a reviewable artifact that travels with the checkout. The memory entry is a one-line pointer to the note.
+- **A note hands its reader the command that would falsify it**, rather than asserting a count or a mechanism in prose.
+- **This file and the notes are public** (Z, 2026-09-18). Write both for a reader outside the project, and never put a value from real data in either.
+
+## How work is reviewed
+
+- **Never `git push`**, or anything else outward-facing: no `gh pr create`, no release, no remote branch. Z publishes. `git stash push` reads as a push in a command line, so say beforehand that it is local, or avoid it.
+- **Never `git commit` unless asked, and a commit instruction covers only the work that existed when it was given.** Do the work, leave it uncommitted, say what changed in prose, stop. The uncommitted tree is the review surface; a diff artifact or a summary page is not a substitute.
+- **Use the `Edit` tool for changes to an existing file, never a script that rewrites it.** Z reviews side by side in the IDE diff view as each edit lands, and a rewritten file gives that view nothing to show. An announced mechanical rename with `sed` is the one exception. Reaching for a script is a sign the change is too big to review in one go.
+- **One change at a time.** Finish one item, say exactly what changed, what the agent checked and what is left for Z to check, then stop. Keep a list of deferred items and restate it at the end of each turn.
+- **Do not overstate severity.** "Bug" is for behavior that is wrong, not behavior that is non-deterministic, unidiomatic or different from before. Describe what was measured and let Z judge; a preference is offered as a preference.
+
+## How decisions are made
+
+- **Fail loudly, or document -- never automate away a decision.** Where the right answer depends on something the application cannot know, it says so and stops. A computed default never removes the knob. Something done for the user as a side effect of something else is not the same as the user asking for it by name.
+- **Settle a design question with data rather than argument, where data can settle it.** Build the case that would distinguish the two claims, run it, read what comes back. The data then becomes part of the repository, so anyone who disagrees can re-run it. Here that data is synthetic.
+- **A number with a clinical meaning comes from a cited source Z has checked**, never from the agent's recollection: an event-index severity band, a leak limit, what a device flag means. The agent's expensive errors are the plausible ones, and a threshold is where a plausible error hides.
+
+## How to know a change works
+
+**Z tests every change personally, and there is no automated test suite.** Whether a change is right is Z's call, and a suite the agent writes and runs is the agent vouching for itself. A suite may come once there is enough synthetic data to build one on (Z, 2026-09-18); until then nothing here assumes one.
+
+What a person cannot do is re-check, after every change, everything that was checked before, and an agent produces changes faster than anyone can. Three things cover that, and none of them takes the testing away from Z:
+
+1. **The promise is enforced by the page, not by care.** A Content-Security-Policy that forbids outbound connections makes the browser refuse them. It is built with the stack, before the first feature that reads a file, and any change to it is raised with Z by name.
+2. **A written checklist, run by Z before each release**: what to check, and what a failure looks like. A check with no stated failure is not a check. When a change adds behavior worth protecting, propose its checklist entry with the change.
+3. **A record of every verification, in Z's words**: what was checked, on what data, at which commit. Testing that is not written down is invisible to the reviewer this project is for. **The agent never writes that Z verified something**, and never presents its own checks as Z's.
+
+What the agent does before handing a change over:
+
+- **Say what it checked itself, and show the output**, separately from what is left for Z to check, and name what it did not check.
+- **Read the whole output of anything it runs.** In PoolSeqFlow the tail of a failure summary was read as a list of passes.
+- **Two things that must agree are derived from one source, never kept in step by hand.** A pair kept in step by care drifts silently and produces a wrong result rather than a failure.
+- **After any move, rename or filter, ask what was pointed at the old thing**, and grep for it. A check aimed at something that moved keeps passing over nothing.
+- **Synthetic data carries its own answer.** What a case should show is derived from how it was built, and the generator is committed rather than its output. An expectation read off what the code produced is a check that cannot fail.
+
+## House style
+
+American English everywhere. ASCII only in the text we write -- `--`, `...`, `->`, straight quotes -- except data we did not author, a character that is the subject of the sentence, a glyph the application renders, and a literal whose other half a text tool cannot reach. No hard wrapping in markdown: one line per paragraph and per list item.
