@@ -126,6 +126,22 @@ So the rule in `CLAUDE.md` now says:
 - **For the three ResMed series,** a harnessed read with limited scope may show where the series differ.
 - **What is read** is settled by `prepare_data()`.
 
+## The fresh-session rule, waived once
+
+The rule says code is written in a session whose context has never held another project's reader for that family. For the ResMed generator, Z waived it on 2026-09-19:
+
+> OK! I think we should do it here. Waive it, and explain why it is waived. We did a lot of work and you know the context now. I worry that switching to another agent will create a lot of issues. I will still work on plot generation on another session.
+
+**Why it was waived.** The rule buys one thing: an agent that has read someone else's reader cannot lean on it while writing ours. It costs something too. By the time the generator was due, the session held the format file, the cases, the day rules, the promises and every decision behind them, and handing that to a new session means writing it all down again or losing it. Z judged the risk of a bad handover greater than the risk the rule guards against.
+
+**What still holds, so the waiver is narrow:**
+- The generator is written from `formats/resmed.md` and `dev/synthetic/resmed-cases.md` alone.
+- Every fact in the format file cites a cleared read, so a reviewer can check each one against its source rather than trusting the session.
+- OSCAR's source is not opened again. Anything the format file leaves open is a gap that goes to Z, as before.
+- The waiver covers the ResMed generator in this session. It is not a general relaxation, and the next piece of code starts under the rule again.
+
+**What a reader should take from this.** The separation is the stronger arrangement, and it was given up here for a reason stated in public rather than quietly. Someone auditing this can hold the generator against the format file and the log, which is the check that matters either way.
+
 ## Where that leaves the attempt
 
 - **Nothing read in the attempt is used.** Those reads were not named, recorded or cleared, and `dev/READING-LOG.md` lists them under R-000. Any fact from them can be used only after a read of its own through the log.

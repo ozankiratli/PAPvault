@@ -22,7 +22,7 @@
 | `crosses-noon` | a session running from before noon to after it. Its whole data belongs to the day it began in |
 | `empty-day` | a day folder with no files, and a gap of several days between two nights |
 | `no-oximeter` | no `SAD` files, so the reader must cope with a kind that is missing |
-| `many-days` | ten short nights in a row, for a range selection and its summaries |
+| `five-days` | five CPAP days in a row, for a range selection and its summaries. The nights differ in start and length; one has no oximetry; one day holds two sessions, the second of which starts after midnight and is filed under the day before |
 | `other-labels` | the short and translated label forms of `formats/resmed.md`, including one with bytes outside ASCII. The reader reports which signals it did not find rather than guessing |
 | `lies` | files that do not add up; each is its own card, listed below |
 

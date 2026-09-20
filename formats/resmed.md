@@ -166,7 +166,7 @@ No source gives these, and a reader must take them from each file's header, neve
 
 ## Open
 
-1. **The AirSense 10's exact labels.** The dotted form is likely; the check decides (see *Across the series*).
+1. **The AirSense 10's exact labels.** Half settled, on 2026-09-19. A synthetic card written with the dotted labels was read by the R `edf` package and then by `prepare_data()`, which found every signal it looks for: a label written `Flow.40ms` reaches the name `Flow_40ms`. So the dotted form works end to end with the prototype. Whether a real AirSense 10 card spells its labels that way is a separate question, and only Z's card answers it.
 2. **Which series writes which label form, `SA2` and `AEV`,** and what `AEV` holds. Sources: Z, a further limited read, or a real card of that series.
 3. **A second source for the labels.** OSCAR is the only source for everything in *Across the series*, and R-016 found no reader of ResMed cards whose knowledge is independent of it. The container is a different matter: EDF is a published standard, and the R `edf` package the checks run with is an independent implementation of it. So the file structure has an independent check and the label spellings do not.
 
