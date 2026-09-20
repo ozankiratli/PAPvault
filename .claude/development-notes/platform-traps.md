@@ -39,3 +39,17 @@ So match text by nearness rather than by equality -- the probe here takes any dr
 *Found 2026-09-20.* A probe scrolled the page with `window.scrollTo(0, 900)` and then the run was screenshotted to see the sticky bar over the plots. Every such capture was the page background and nothing else, at two virtual time budgets and from two different probe pages, while a `--dump-dom` run of the same page reported the scroll had happened and the layout was right. A capture taken without scrolling, of the same page, came out correctly.
 
 Do not read a blank capture as a blank page. Measure the rendered geometry from inside the page instead -- `getBoundingClientRect()` for where something sits, `document.elementFromPoint` and `elementsFromPoint` for what is drawn on top of what -- or make the window taller than the content so that nothing has to scroll.
+
+## `tee /dev/stderr` eats the log it is writing to
+
+*Found 2026-09-20.* The test runner printed its build checksum with `python3 build.py | tee /dev/stderr | cut -d' ' -f1`, so the line would show in the log as well as being captured. Run in a terminal it looked right. Run as `run.sh > log.txt 2>&1` the log came back with its first four sections missing, replaced by a run of spaces, and began part way through the fifth.
+
+`2>&1` makes stderr a duplicate of stdout, sharing one file offset. `tee /dev/stderr` does not write to that descriptor: it **opens** `/dev/stderr`, which on Linux is `/proc/self/fd/2`, and opening it gives a new file description starting at offset zero. Everything written before it is overwritten in place.
+
+Print the line with `echo` instead, and take the field from the variable:
+
+    said="$(python3 build.py)"
+    echo "$said"
+    first="${said%% *}"
+
+The same applies to any `tee /dev/stdout` or `tee /dev/fd/N` in a script whose output is redirected to a file, which includes every CI log. **A run that passes is not evidence its log is complete** -- count the sections, or check that the first one is there.

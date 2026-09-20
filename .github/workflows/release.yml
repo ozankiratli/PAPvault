@@ -88,7 +88,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p out
-          first="$(python3 build.py | tee /dev/stderr | cut -d' ' -f1)"
+          # Not `tee /dev/stderr`: it reopens stderr at offset zero and writes
+          # over what the log already holds.
+          said="$(python3 build.py)"
+          echo "$said"
+          first="${said%% *}"
           second="$(python3 build.py | cut -d' ' -f1)"
           if [ "$first" != "$second" ]; then
             echo "Two builds of one commit gave different bytes, so nobody can rebuild this." >&2

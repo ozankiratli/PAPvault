@@ -67,8 +67,12 @@ scripts_parse() {
 }
 
 deterministic() {
-    local first second served
-    first="$(python3 build.py | tee /dev/stderr | cut -d' ' -f1)" || return 1
+    local said first second served
+    # Not `tee /dev/stderr`: when this runs with its output redirected to a file, tee
+    # opens stderr afresh at offset zero and writes over everything printed before it.
+    said="$(python3 build.py)" || return 1
+    echo "  $said"
+    first="${said%% *}"
     second="$(python3 build.py | cut -d' ' -f1)" || return 1
     if [ "$first" != "$second" ]; then
         echo "two builds of one tree gave different bytes"
