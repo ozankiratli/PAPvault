@@ -57,3 +57,4 @@ One file per subject, not per source file: the reasoning crosses file boundaries
 | `the-old-interface.md` | the R prototype's template, plots, palette and summary figures, written down so PAPvault's plots are built from a file rather than from the prototype; and what the palette has to become to survive a dark background |
 | `reading-a-card.md` | the EDF reader and the card pipeline: what each decides, the bug the synthetic answers caught, what was checked and how those checks were shown to be able to fail |
 | `drawing-the-plots.md` | the day stack and the summary stack: how they are kept aligned and in step, how the prototype's palette survived a dark theme, and three bugs that only looking at the output found |
+| `the-checks.md` | why there was deliberately no test suite, the day Z judged the page ready and asked for one, what each part of it was built to catch, and the hole that breaking a check revealed |

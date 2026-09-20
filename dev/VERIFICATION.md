@@ -13,3 +13,8 @@ Found: what happened, including anything that did not work
 ```
 
 This file is public, like the rest of the repository, so an entry never carries a value from real data.
+
+## 2026-09-20 at preparation to v0.0.1
+Checked: All features, the website permissions on the machine I built. 
+Data: Real (AirSense 10) and synthetic data.
+Found: All released features are working. 

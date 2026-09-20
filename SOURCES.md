@@ -67,11 +67,7 @@ Read on 2026-09-20 under `R-019` and `R-020`, to find a palette for event names 
 
 - **uPlot:** [github.com/leeoniya/uPlot](https://github.com/leeoniya/uPlot), version 1.6.32, MIT. Chosen to draw the plots, and the one library in the page. It is carried whole and unmodified in `lib/uplot/`, taken from the repository's tag `1.6.32`, which is commit `e995b061e9fc5476a6d862cd2fb2ebc7452ca012` (2025-03-14):
 
-  | File in `lib/uplot/` | From | Bytes | SHA-256 |
-  |---|---|---|---|
-  | `uPlot.iife.js` | `dist/uPlot.iife.js` | 150,232 | `1b71fc5e6b5b572922ed9941ed21d067207c8e5ecac0d35de66fd65d9686e791` |
-  | `uPlot.css` | `src/uPlot.css` | 2,048 | `9eeefb2466014dc31038e20b72693a45dde4c56c5fe6176ea314cff95b6576d1` |
-  | `LICENSE` | `LICENSE` | 1,078 | `8f989229699b4fe2f1a0432d0e9edc338a8a911e250e2d1b01ecd770a5f5b1bd` |
+  | File in `lib/uplot/` | From | Bytes | SHA-256 | |---|---|---|---| | `uPlot.iife.js` | `dist/uPlot.iife.js` | 150,232 | `1b71fc5e6b5b572922ed9941ed21d067207c8e5ecac0d35de66fd65d9686e791` | | `uPlot.css` | `src/uPlot.css` | 2,048 | `9eeefb2466014dc31038e20b72693a45dde4c56c5fe6176ea314cff95b6576d1` | | `LICENSE` | `LICENSE` | 1,078 | `8f989229699b4fe2f1a0432d0e9edc338a8a911e250e2d1b01ecd770a5f5b1bd` |
 
   The stylesheet is taken from `src/`, since the only copy under `dist/` is minified. `sha256sum lib/uplot/*` checks all three against this table.
 - **plotly.js:** [github.com/plotly/plotly.js](https://github.com/plotly/plotly.js), version 4.1.1, MIT. Tried against uPlot and not chosen.

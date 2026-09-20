@@ -279,21 +279,8 @@ Z suspected the 6 o'clock cut had drifted, which was a good guess at the class o
 
 ## Where the checks are, for whoever picks this up
 
-Everything this note reports as measured was measured with scripts that are **not in
-this repository**. They are in the agent's session scratchpad, and they go when the
-session does. Their inventory is a file called `CHECKS.md` at the root of that
-scratchpad: what each one proves, how to run it, and which of them were shown to fail
-when the code was broken.
+Everything this note reports as measured was measured with scripts that are **not in this repository**. They are in the agent's session scratchpad, and they go when the session does. Their inventory is a file called `CHECKS.md` at the root of that scratchpad: what each one proves, how to run it, and which of them were shown to fail when the code was broken.
 
-That is a gap, and it is named rather than papered over. Two Node scripts drive
-`src/edf.js` and `src/card.js` against the synthetic answers, 665 and 822 checks; five
-Python scripts build probe copies of the built page, carrying a synthetic card inline
-and feeding it through the real file input, which is how the day and range views, the
-event strip's pixels, the scroll behaviour, the legend and the manual's groups were
-all checked. Whether any of them belongs in `dev/` is Z's decision and has not been
-made: `CLAUDE.md` says there is no automated suite because a suite the agent writes
-and runs is the agent vouching for itself, and that reasoning does not stop applying
-because the scripts turned out to be useful.
+That is a gap, and it is named rather than papered over. Two Node scripts drive `src/edf.js` and `src/card.js` against the synthetic answers, 665 and 822 checks; five Python scripts build probe copies of the built page, carrying a synthetic card inline and feeding it through the real file input, which is how the day and range views, the event strip's pixels, the scroll behaviour, the legend and the manual's groups were all checked. Whether any of them belongs in `dev/` is Z's decision and has not been made: `CLAUDE.md` says there is no automated suite because a suite the agent writes and runs is the agent vouching for itself, and that reasoning does not stop applying because the scripts turned out to be useful.
 
-What a reader can re-run today without them: `python3 build.py` twice for the
-checksum, the `no-markup` grep, and every entry in `dev/CHECKLIST.md`.
+What a reader can re-run today without them: `python3 build.py` twice for the checksum, the `no-markup` grep, and every entry in `dev/CHECKLIST.md`.

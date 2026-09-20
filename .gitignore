@@ -18,3 +18,6 @@ __pycache__/
 
 # Claude Code's per-machine settings
 .claude/settings.local.json
+
+# Cards the checks derive from the synthetic ones
+/dev/tests/out/

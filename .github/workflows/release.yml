@@ -20,6 +20,11 @@ name: Create a release
 # event that starts another workflow. Set `draft: false` below to publish straight
 # away, and then deploy the site by running pages.yml by hand.
 #
+# What this checks is the release: that the tag and VERSION agree, that the changelog
+# describes the version, that the page builds the same twice and carries the version it
+# claims, and that the tarball rebuilds the same page. The checks on the code itself are
+# dev/tests/run.sh, and they are run on the machine the change was made on.
+#
 # workflow_dispatch runs everything as a rehearsal and creates no release, so a run
 # before the tag exists proves the release would work.
 
@@ -77,32 +82,6 @@ jobs:
       # step would then fail to read.
       - name: The changelog describes this version
         run: dev/scripts/changelog-section.sh "${{ steps.version.outputs.version }}" > /dev/null
-
-      - name: Nothing read from a file may become markup or code
-        run: |
-          set -euo pipefail
-          if grep -rn "innerHTML\|outerHTML\|insertAdjacentHTML\|document\.write\|eval(\|new Function" src lib; then
-            echo "One of the sinks CLAUDE.md forbids is in the source." >&2
-            exit 1
-          fi
-          echo "  ok  none of them appears in src or lib"
-
-      - name: What ships is ASCII
-        run: |
-          set -euo pipefail
-          if LC_ALL=C grep -rnP '[^\x00-\x7F]' src build.py; then
-            echo "A byte outside ASCII is in the code that ships. House style allows four" >&2
-            echo "exceptions; if this is one, narrow this check and say why here." >&2
-            exit 1
-          fi
-          echo "  ok  src and build.py are ASCII throughout"
-
-      - name: Shell scripts parse
-        run: |
-          set -euo pipefail
-          for s in dev/scripts/*.sh; do
-            bash -n "$s" && echo "  ok  $s"
-          done
 
       - name: Build it twice and compare
         id: build

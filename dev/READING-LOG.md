@@ -431,8 +431,7 @@ Nothing in an entry is rewritten afterwards; an entry only gains lines. The entr
 - **Slip:** 2026-09-20, reported before it was used. Writing the manual's new References section, the agent typed three journal citations from its own recollection: the 1992 EDF article, the 2003 EDF+ article, and Vienot, Brettel and Mollon 1999, whose method the color-blindness check uses. That is the error this log exists to prevent, in a place a reader would take on trust, and the 1992 article is named under R-001 as *not read*. The agent caught it, and checked all three against bibliographic records rather than leave them standing:
   - Kemp, Varri, Rosa, Nielsen and Gade 1992, *Electroencephalography and Clinical Neurophysiology* 82:391-393, doi 10.1016/0013-4694(92)90009-7. The agent had written the issue number `82(5)`; no record confirms an issue number, so it was removed rather than kept.
   - Kemp and Olivan 2003, *Clinical Neurophysiology* 114(9):1755-1761, doi 10.1016/S1388-2457(03)00123-8, as written.
-  - Vienot, Brettel and Mollon 1999, *Color Research and Application* 24(4):243-252, doi 10.1002/(SICI)1520-6378(199908)24:4<243::AID-COL5>3.0.CO;2-3, as written.
-  Those lookups were bibliographic only: no article was opened and nothing from any of them is in PAPvault beyond the citation itself. **The Vienot, Brettel and Mollon method is, however, a source PAPvault now relies on** -- it is how every claim in this session about color blindness was measured -- and it is added to `SOURCES.md` accordingly. Z has the account above and rules on whether it needed an entry of its own beforehand.
+  - Vienot, Brettel and Mollon 1999, *Color Research and Application* 24(4):243-252, doi 10.1002/(SICI)1520-6378(199908)24:4<243::AID-COL5>3.0.CO;2-3, as written. Those lookups were bibliographic only: no article was opened and nothing from any of them is in PAPvault beyond the citation itself. **The Vienot, Brettel and Mollon method is, however, a source PAPvault now relies on** -- it is how every claim in this session about color blindness was measured -- and it is added to `SOURCES.md` accordingly. Z has the account above and rules on whether it needed an entry of its own beforehand.
 
 ## R-020: the Okabe and Ito palette values
 
@@ -462,8 +461,7 @@ Nothing in an entry is rewritten afterwards; an entry only gains lines. The entr
   - `dev/scripts/` -- especially `prep-version.sh`, `bump-version.sh`, and `verify-archive.sh`;
   - `.github/workflows/` -- the workflow files, whichever exist;
   - whatever file holds its version, and the script or step that reads it;
-  - the part of its `CLAUDE.md` or its development notes that states the release rules, if there is one.
-  Its SHA-256 or commit is recorded for each file at the read, since it is a separate checkout.
+  - the part of its `CLAUDE.md` or its development notes that states the release rules, if there is one. Its SHA-256 or commit is recorded for each file at the read, since it is a separate checkout.
 - **Facts sought:**
   - what event publishes the site, and what is deliberately excluded;
   - what the workflow checks before it publishes, and which of those fail the run rather than warn;

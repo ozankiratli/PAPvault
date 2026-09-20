@@ -1,0 +1,58 @@
+name: Build
+
+# Does it build? That is all this asks.
+#
+# The checks themselves are not run here. They are `dev/tests/run.sh`, they are run on
+# the machine the change was made on, and what they found is said with the change. This
+# is the one thing worth asking of a runner that has never seen a card: that the source
+# in the repository still produces a page, and produces the same one twice.
+#
+# Not on push to main, which is only written by merges that already passed here.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build it twice and compare
+        id: build
+        run: |
+          set -euo pipefail
+          first="$(python3 build.py | tee /dev/stderr | cut -d' ' -f1)"
+          second="$(python3 build.py | cut -d' ' -f1)"
+          if [ "$first" != "$second" ]; then
+            echo "Two builds of one commit gave different bytes, so nobody can rebuild this." >&2
+            exit 1
+          fi
+          served="$(sha256sum dist/index.html | cut -d' ' -f1)"
+          if [ "$first" != "$served" ]; then
+            echo "The build reported a checksum that is not the file's own." >&2
+            exit 1
+          fi
+          echo "checksum=$first" >> "$GITHUB_OUTPUT"
+          echo "bytes=$(wc -c < dist/index.html)" >> "$GITHUB_OUTPUT"
+
+      - name: Say what was built
+        run: |
+          {
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Version | v$(tr -d '[:space:]' < VERSION) |"
+            echo "| SHA-256 | \`${{ steps.build.outputs.checksum }}\` |"
+            echo "| Bytes | ${{ steps.build.outputs.bytes }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

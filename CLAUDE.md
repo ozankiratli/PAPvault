@@ -222,13 +222,20 @@ Before calling a file done, grep for `on purpose | deliberately | rather than | 
 
 ## How to know a change works
 
-**Z tests every change personally, and there is no automated test suite.** Whether a change is right is Z's call, and a suite the agent writes and runs is the agent vouching for itself. A suite may come once there is enough synthetic data to build one on (Z, 2026-09-18); until then nothing here assumes one.
+**Z tests every change personally, and whether a change is right is Z's call.** A suite the agent writes and runs is the agent vouching for itself, so nothing the suite says is evidence that a change is good.
 
-What a person cannot do is re-check, after every change, everything that was checked before, and an agent produces changes faster than anyone can. Three things cover that, and none of them takes the testing away from Z:
+**There is a suite now.** Z, 2026-09-20, judging the page ready to ship: *"We can build a test suite now, the website is ready to be shipped. I checked everything as best as I can."* That is the condition of 2026-09-18 met -- enough synthetic data to build one on. It is `dev/tests/`, it is run with `dev/tests/run.sh`, and `dev/tests/README.md` says what each part proves and what it does not cover. What it is for is noticing when something that used to work has stopped; it does not decide whether a release is good, and it never stands in for `dev/CHECKLIST.md` or for Z's own testing on a real card.
+
+- **A check that cannot fail is not a check.** Every check in the suite was broken on purpose and seen to fail, and `dev/tests/README.md` records which break was used.
+- **A failing suite is reported, never worked around.** The agent does not narrow a check, skip a case or adjust an expectation to make a run pass.
+- **The suite is checked against a real card by nobody.** No real data reaches it, so a check passing says the reader agrees with the generator -- both written here.
+
+What a person cannot do is re-check, after every change, everything that was checked before, and an agent produces changes faster than anyone can. Four things cover that, and none of them takes the testing away from Z:
 
 1. **The promise is enforced by the page, not by care.** The Content-Security-Policy described under *Security* makes the browser refuse any outbound connection. It is in place before the first feature that reads a file.
 2. **A written checklist, run by Z before each release**, in `dev/CHECKLIST.md`: what to check, and what a failure looks like. A check with no stated failure is not a check. When a change adds behavior worth protecting, propose its checklist entry with the change.
 3. **A record of every verification, in Z's words**, in `dev/VERIFICATION.md`: what was checked, on what data, at which commit. Testing that is not written down is invisible to the reviewer this project is for. **The agent never writes that Z verified something**, and never presents its own checks as Z's.
+4. **The suite in `dev/tests/`**, run by the agent on this machine before handing anything over. It is the regression net under the three above, not a replacement for any of them. Z, 2026-09-20, on where it runs: *"We will test only if it builds there. All the other tests should be on this machine."* So the only thing a GitHub runner is asked is whether the source still builds, and builds the same twice.
 
 What the agent does before handing a change over:
 
