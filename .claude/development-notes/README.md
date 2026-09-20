@@ -53,3 +53,7 @@ One file per subject, not per source file: the reasoning crosses file boundaries
 | `platform-traps.md` | kept current: the shell and tooling traps that produced a wrong result once |
 | `machine-survey.md` | which PAP machines exist, where each keeps its data and in what format, what the survey got wrong, and what could be supported |
 | `other-projects.md` | how the rule on other projects' work was set, the attempt in which the agent read OSCAR's parser to build a generator and Z stopped it, the rule Z then set, and the decisions that came with it |
+| `the-day-boundary.md` | why a PAPvault day is not a calendar day, and the day the cut moved from noon to 6 in the morning: what decided it, what it touched, and what is still unchecked |
+| `the-old-interface.md` | the R prototype's template, plots, palette and summary figures, written down so PAPvault's plots are built from a file rather than from the prototype; and what the palette has to become to survive a dark background |
+| `reading-a-card.md` | the EDF reader and the card pipeline: what each decides, the bug the synthetic answers caught, what was checked and how those checks were shown to be able to fail |
+| `drawing-the-plots.md` | the day stack and the summary stack: how they are kept aligned and in step, how the prototype's palette survived a dark theme, and three bugs that only looking at the output found |

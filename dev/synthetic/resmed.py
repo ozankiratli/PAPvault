@@ -92,10 +92,20 @@ def build_signal(label, unit, low, high, per_record, records, kind):
     return signal
 
 
+# The hour a CPAP day begins on its own date, and so the hour the next day takes over.
+# It was 12 until Z moved it to 6 on 2026-09-19, so that a nap starting after 6 in the
+# morning belongs to that morning's day rather than to the night before. Every case
+# below has its sessions starting in the evening or between midnight and 6, which both
+# rules put in the same day, so no answer.json changed when this moved. A case that
+# would tell the two apart needs a session starting between 6 and noon; see
+# resmed-cases.md, where morning-nap is proposed for exactly that.
+DAY_START_HOUR = 6
+
+
 def cpap_day(moment):
-    """The CPAP day a moment falls in: noon to noon, named by the date it began."""
+    """The CPAP day a moment falls in: DAY_START_HOUR to DAY_START_HOUR, named by the date it began."""
     date = moment.date()
-    if moment.hour < 12:
+    if moment.hour < DAY_START_HOUR:
         date = date - datetime.timedelta(days=1)
     return date
 

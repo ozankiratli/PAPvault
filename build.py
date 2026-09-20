@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 """Build PAPvault into one self-contained HTML file.
 
-Inlines src/style.css and src/app.js into src/index.html, renders
-docs/manual.md into the manual dialog, fills in a Content-Security-Policy
-that allows exactly the one style and the one script by hash, writes
+Inlines the two stylesheets and the four scripts listed in main() into
+src/index.html, renders docs/manual.md into the manual dialog, fills in a
+Content-Security-Policy that allows exactly those six by hash, writes
 dist/index.html, and prints the SHA-256 of what it wrote.
+
+Each is its own element with its own hash, so the policy names the library
+separately from the page's own code. The scripts are inlined in the order
+they are listed, which is the order they depend on each other in.
 
 The manual is written in a small subset of Markdown:
 
-    # Heading      a group in the manual's navigation
+    # Heading      a group in the manual's navigation, which collapses
     ## Heading     a section: one button, one pane
     > text         a pull quote
     - text         a bulleted list
@@ -29,17 +33,29 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent
 SRC = ROOT / "src"
+LIB = ROOT / "lib"
 MANUAL = ROOT / "docs" / "manual.md"
+VERSION = ROOT / "VERSION"
 OUT = ROOT / "dist" / "index.html"
 
 CSP_MARKER = '<meta http-equiv="Content-Security-Policy" content="">'
+UPLOT_STYLE_MARKER = '<link rel="stylesheet" href="../lib/uplot/uPlot.css">'
 STYLE_MARKER = '<link rel="stylesheet" href="style.css">'
+UPLOT_SCRIPT_MARKER = '<script src="../lib/uplot/uPlot.iife.js"></script>'
+EDF_SCRIPT_MARKER = '<script src="edf.js"></script>'
+CARD_SCRIPT_MARKER = '<script src="card.js"></script>'
+PLOTS_SCRIPT_MARKER = '<script src="plots.js"></script>'
 SCRIPT_MARKER = '<script src="app.js"></script>'
 MANUAL_MARKER = "<!-- manual -->"
+VERSION_MARKER = "<!-- version -->"
 
 
 def read(name):
     return (SRC / name).read_text(encoding="utf-8")
+
+
+def read_lib(name):
+    return (LIB / name).read_text(encoding="utf-8")
 
 
 def csp_hash(text):
@@ -70,11 +86,22 @@ def section_id(title):
 
 
 def render_manual(text):
-    """Turn the manual's Markdown into the navigation and the panes."""
-    nav = []
+    """Turn the manual's Markdown into the navigation and the panes.
+
+    Each `#` heading becomes a group the reader can collapse, holding the `##`
+    sections under it as buttons. The script opens one group at a time.
+    """
+    groups = []
     panes = []
     body = []
     listing = None
+
+    def group_for_sections():
+        # A manual that opens with a section rather than a group still gets one,
+        # unnamed, so every section button has somewhere to live.
+        if not groups:
+            groups.append({"title": "", "id": "manual-group-0", "items": []})
+        return groups[-1]
 
     def close_list():
         nonlocal listing
@@ -95,11 +122,16 @@ def render_manual(text):
         elif line.startswith("## "):
             close_section()
             title = line[3:].strip()
-            nav.append(f'<button type="button" data-section="{section_id(title)}">{inline(title)}</button>')
+            group_for_sections()["items"].append(
+                f'<button type="button" data-section="{section_id(title)}">{inline(title)}</button>')
             panes.append(f'<section class="manual-pane" id="{section_id(title)}">\n<h3>{inline(title)}</h3>\n')
         elif line.startswith("# "):
             close_section()
-            nav.append(f'<p class="manual-group">{inline(line[2:].strip())}</p>')
+            groups.append({
+                "title": line[2:].strip(),
+                "id": "manual-group-%d" % len(groups),
+                "items": [],
+            })
         elif not panes:
             fail(f"docs/manual.md has text before its first section: {line!r}")
         elif line.startswith("> "):
@@ -124,6 +156,24 @@ def render_manual(text):
     close_section()
     if not panes:
         fail("docs/manual.md holds no sections")
+
+    nav = []
+    for group in groups:
+        if not group["items"]:
+            continue
+        buttons = "\n".join(group["items"])
+        if not group["title"]:
+            nav.append(buttons)
+            continue
+        nav.append(
+            '<div class="manual-group">\n'
+            f'<button type="button" class="manual-group-button" aria-expanded="false"'
+            f' aria-controls="{group["id"]}" data-group="{group["id"]}">{inline(group["title"])}</button>\n'
+            f'<div class="manual-group-items" id="{group["id"]}" hidden>\n'
+            + buttons
+            + "\n</div>\n</div>"
+        )
+
     return (
         '<nav class="manual-nav" id="manual-nav" aria-label="Manual sections">\n'
         + "\n".join(nav)
@@ -142,33 +192,52 @@ def replace_once(html, marker, replacement):
 
 def main():
     html = read("index.html")
-    style = "\n" + read("style.css")
-    script = "\n" + read("app.js")
+    # Each entry is one inlined element: its name for a message, its text, and the marker it replaces.
+    # The hashes in the policy and the elements in the page are both taken from these two lists.
+    styles = [
+        ("lib/uplot/uPlot.css", "\n" + read_lib("uplot/uPlot.css"), UPLOT_STYLE_MARKER),
+        ("src/style.css", "\n" + read("style.css"), STYLE_MARKER),
+    ]
+    scripts = [
+        ("lib/uplot/uPlot.iife.js", "\n" + read_lib("uplot/uPlot.iife.js"), UPLOT_SCRIPT_MARKER),
+        ("src/edf.js", "\n" + read("edf.js"), EDF_SCRIPT_MARKER),
+        ("src/card.js", "\n" + read("card.js"), CARD_SCRIPT_MARKER),
+        ("src/plots.js", "\n" + read("plots.js"), PLOTS_SCRIPT_MARKER),
+        ("src/app.js", "\n" + read("app.js"), SCRIPT_MARKER),
+    ]
 
-    if "</style" in style.lower():
-        fail("src/style.css contains '</style', which would end the inlined element early")
-    for sequence in ("</script", "<!--"):
-        if sequence in script.lower():
-            fail(f"src/app.js contains {sequence!r}, which would change how the inlined element is parsed")
+    for name, text, _ in styles:
+        if "</style" in text.lower():
+            fail(f"{name} contains '</style', which would end the inlined element early")
+    for name, text, _ in scripts:
+        for sequence in ("</script", "<!--"):
+            if sequence in text.lower():
+                fail(f"{name} contains {sequence!r}, which would change how the inlined element is parsed")
 
     policy = "; ".join([
         "default-src 'none'",
-        "script-src " + csp_hash(script),
-        "style-src " + csp_hash(style),
+        "script-src " + " ".join(csp_hash(text) for _, text, _ in scripts),
+        "style-src " + " ".join(csp_hash(text) for _, text, _ in styles),
         "img-src data:",
         "base-uri 'none'",
         "form-action 'none'",
     ])
 
+    version = VERSION.read_text(encoding="utf-8").strip()
+    if not re.match(r"^\d+\.\d+\.\d+$", version):
+        fail(f"VERSION holds {version!r}, which is not a three-part version")
+    html = replace_once(html, VERSION_MARKER, "v" + html_module.escape(version, quote=False))
     html = replace_once(html, MANUAL_MARKER, render_manual(MANUAL.read_text(encoding="utf-8")))
     html = replace_once(html, CSP_MARKER, f'<meta http-equiv="Content-Security-Policy" content="{policy}">')
-    html = replace_once(html, STYLE_MARKER, f"<style>{style}</style>")
-    html = replace_once(html, SCRIPT_MARKER, f"<script>{script}</script>")
+    for _, text, marker in styles:
+        html = replace_once(html, marker, f"<style>{text}</style>")
+    for _, text, marker in scripts:
+        html = replace_once(html, marker, f"<script>{text}</script>")
 
     data = html.encode("utf-8")
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_bytes(data)
-    print(f"{hashlib.sha256(data).hexdigest()}  {OUT.relative_to(ROOT)}")
+    print(f"{hashlib.sha256(data).hexdigest()}  {OUT.relative_to(ROOT)}  v{version}")
 
 
 if __name__ == "__main__":

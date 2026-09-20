@@ -19,7 +19,8 @@
 | `plain-night` | one session, all five kinds of file, a handful of events at known times |
 | `two-sessions` | a mask-off break: two sessions in one night, in one day folder |
 | `after-midnight` | a session starting after midnight, filed in the *next* day's folder on purpose, so the answer proves the folder decides nothing |
-| `crosses-noon` | a session running from before noon to after it. Its whole data belongs to the day it began in |
+| `crosses-the-cut` | a session running from before 6 in the morning to well after it. Its whole data belongs to the day it began in |
+| `morning-nap` | a session starting between 6 in the morning and noon. **Proposed 2026-09-19, for Z to agree.** It is the only case that tells the 6 o'clock cut apart from the noon cut it replaced: the 6 o'clock rule puts it in that morning's day, the noon rule put it in the night before. Without it, nothing in the synthetic data would fail if the cut moved back |
 | `empty-day` | a day folder with no files, and a gap of several days between two nights |
 | `no-oximeter` | no `SAD` files, so the reader must cope with a kind that is missing |
 | `five-days` | five CPAP days in a row, for a range selection and its summaries. The nights differ in start and length; one has no oximetry; one day holds two sessions, the second of which starts after midnight and is filed under the day before |
@@ -51,6 +52,19 @@ For each case:
 - **the identifying marker,** which must appear nowhere in the page;
 - **for `lies`:** what the reader is expected to report, per file.
 
+## The summary figures
+
+Decided by Z on 2026-09-19, for the top card over whichever period is selected. Each is arithmetic over what the device recorded, and none of them judges it:
+
+- **hours of machine use** per CPAP day, from session start and end times;
+- **the number of sessions** per CPAP day;
+- **events per hour**, per CPAP day, kept apart by the device's own annotation text. Nothing is grouped into kinds of PAPvault's own, and nothing is summed across labels;
+- **pressure**, its median and its 95th percentile per CPAP day;
+- **leak**, its median and its 95th percentile per CPAP day.
+
+So `answer.json` gains these per CPAP day, derived from how each case was built and never read back from the files. The cases in `out/` were generated before this was decided and do not carry them yet.
+
 ## Open
 
-- **The summary figures** a day or a range shows have not been decided yet. Until they are, `answer.json` carries what the sessions contain, not what a summary should say.
+- **Which signal each of pressure and leak is taken from** when a session has more than one that could serve, since `Press.2s`, `MaskPress.2s` and `Press.40ms` are all pressures. This is named as a gap rather than guessed.
+- **A night whose leak goes on and off.** Proposed 2026-09-20, not yet agreed. Z added a figure that day: the total time the leak ran above zero. Both cases in `out/` carry a leak that ramps from 60 to 120 L/min and never reaches zero, so that total is bound to equal the recorded time, and a reader that ignored every value and returned the running time would pass. The case would hold runs above zero separated by runs at zero, several of each and not all the same length, with the total in `answer.json`. Its answer follows the rule Z set the same day: a run lasts from the stamp before it to the stamp after it, less one step, which comes to its own samples times the step between them; and any value above zero counts, since PAPvault sets no threshold of its own.

@@ -10,6 +10,44 @@
   --accent-soft: #e7eef9;
   --on-accent: #ffffff;
   --radius: 8px;
+  /* Replaced with the bar's measured height once the script runs. */
+  --topbar-height: 3.5rem;
+
+  /* Event colors: Okabe and Ito's, in the order Z set on 2026-09-20. Both themes
+     carry the same seven; only the order differs, so a theme meets its second blue
+     and its second red late rather than early. The three pairs that come within 25
+     of each other -- orange with yellow, orange with vermilion, bluish green with
+     blue -- are close only under tritanopia. Under protanopia and deuteranopia,
+     which are the common ones, the seven stay apart. */
+  --plot-event-count: 7;
+  --plot-event-1: #E69F00;  /* Orange */
+  --plot-event-2: #009E73;  /* bluish Green */
+  --plot-event-3: #0072B2;  /* Blue */
+  --plot-event-4: #D55E00;  /* Vermilion */
+  --plot-event-5: #F0E442;  /* Yellow */
+  --plot-event-6: #56B4E9;  /* Sky Blue */
+  --plot-event-7: #CC79A7;  /* reddish Purple */
+  --plot-event: #E69F00;
+
+  /* Signal colors: ColorBrewer's Dark2, for the light theme. Each plot draws one
+     signal, so these need only be told apart from their own background, not from
+     each other; where a plot draws several, they are given different entries.
+     Dark2 and Set2 pair by position, which is why the dark theme's set matches
+     this one entry for entry. Entry 8 is the neutral grey, which is flow. */
+  --plot-flow: #666666;
+  --plot-mask-pressure: #7570B3;
+  --plot-pressure: #1B9E77;
+  --plot-epr-pressure: #A6761D;
+  --plot-leak: #D95F02;
+  --plot-resp-rate: #66A61E;
+  --plot-flow-lim: #E6AB02;
+  --plot-snore: #A6761D;
+  --plot-tid-vol: #E7298A;
+  --plot-min-vent: #7570B3;
+  --plot-pulse: #D95F02;
+  --plot-spo2: #1B9E77;
+  --plot-usage: #66A61E;
+  --plot-sessions: #666666;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
@@ -24,6 +62,36 @@
   --accent-strong: #6d8fd0;
   --accent-soft: #1d2a40;
   --on-accent: #0d1117;
+
+  /* The same hues, lifted only where the light value failed to read against the
+     dark surface. The three pressures stay a ramp so one plot's lines stay apart. */
+  /* The same seven event colors, ordered for this theme. */
+  --plot-event-count: 7;
+  --plot-event-1: #E69F00;  /* Orange */
+  --plot-event-2: #009E73;  /* bluish Green */
+  --plot-event-3: #56B4E9;  /* Sky Blue */
+  --plot-event-4: #CC79A7;  /* reddish Purple */
+  --plot-event-5: #F0E442;  /* Yellow */
+  --plot-event-6: #0072B2;  /* Blue */
+  --plot-event-7: #D55E00;  /* Vermilion */
+  --plot-event: #E69F00;
+
+  /* Signal colors: ColorBrewer's Set2, the lighter counterpart of Dark2, entry
+     for entry, so a signal keeps its place in the scheme when the theme changes. */
+  --plot-flow: #B3B3B3;
+  --plot-mask-pressure: #8DA0CB;
+  --plot-pressure: #66C2A5;
+  --plot-epr-pressure: #E5C494;
+  --plot-leak: #FC8D62;
+  --plot-resp-rate: #A6D854;
+  --plot-flow-lim: #FFD92F;
+  --plot-snore: #E5C494;
+  --plot-tid-vol: #E78AC3;
+  --plot-min-vent: #8DA0CB;
+  --plot-pulse: #FC8D62;
+  --plot-spo2: #66C2A5;
+  --plot-usage: #A6D854;
+  --plot-sessions: #B3B3B3;
 }
 
 *,
@@ -49,7 +117,15 @@ body {
   flex-direction: column;
 }
 
+/* The bar stays put while the page scrolls, so the folder, the calendar, the manual
+   and the theme are reachable from anywhere in a long stack of plots. What it is
+   worth to the cards below is --topbar-height, which the script measures off this
+   element rather than the other way round: the bar wraps to two rows on a narrow
+   screen. */
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -218,13 +294,31 @@ button:disabled {
 
 .cards {
   flex: 1;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
   width: 100%;
-  max-width: 72rem;
+  max-width: 100rem;
   margin: 0 auto;
   padding: 1.25rem;
+}
+
+/* Wide enough for three columns: the summary and the calendar sit either side of
+   the plots and stay put while the plots scroll. Below this they stack, and below
+   the narrow breakpoint the calendar leaves the page for its dialog. */
+@media (min-width: 1200px) {
+  .cards {
+    grid-template-columns: 21rem minmax(0, 1fr) 18rem;
+    align-items: start;
+  }
+
+  .summary-card,
+  .calendar-card {
+    position: sticky;
+    top: calc(var(--topbar-height) + 1.25rem);
+    max-height: calc(100vh - var(--topbar-height) - 2.5rem);
+    overflow: hidden auto;
+  }
 }
 
 .card {
@@ -241,10 +335,17 @@ button:disabled {
 }
 
 .summary-card {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 1.5rem;
+  min-width: 0;
 }
+
+.calendar-card {
+  padding: 1rem;
+}
+
+#summary-plots {
+  min-width: 0;
+}
+
 
 .selection {
   margin: 0 0 0.5rem;
@@ -255,8 +356,33 @@ button:disabled {
   color: var(--muted);
 }
 
+.version {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The page before a folder is read. */
+.landing-lead {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.landing-words {
+  max-width: 44rem;
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+}
+
+.landing-button {
+  margin: 0 0 1rem;
+}
+
 .calendar {
   width: 17rem;
+}
+
+/* Inside its own card the calendar takes the column it was given. */
+.calendar-card .calendar {
+  width: 100%;
 }
 
 .calendar-head {
@@ -275,6 +401,18 @@ button:disabled {
   padding: 0.2rem 0.6rem;
   font-size: 1.1rem;
   line-height: 1;
+}
+
+.calendar-steps {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.calendar-step {
+  flex: 1;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.8rem;
 }
 
 .calendar-grid {
@@ -310,14 +448,261 @@ button:disabled {
   color: var(--on-accent);
 }
 
+/* A dot under a day the chosen folder holds a recording for. */
+.calendar-day.has-data {
+  position: relative;
+}
+
+.calendar-day.has-data::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  margin-left: -2px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
 .calendar-hint {
   margin: 0.5rem 0 0;
   font-size: 0.75rem;
   color: var(--muted);
 }
 
-.narrow .summary-card {
-  grid-template-columns: 1fr;
+/* The day's figures, one box each, tinted with the color of the thing they
+   describe so the page reads as one system. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1rem;
+}
+
+.figure-box[data-tint="session"] {
+  grid-column: 1 / -1;
+}
+
+.figure-box {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.figure-box[data-tint="session"] {
+  background: color-mix(in srgb, var(--plot-usage) 10%, transparent);
+}
+
+.figure-box[data-tint="pressure"] {
+  background: color-mix(in srgb, var(--plot-mask-pressure) 10%, transparent);
+}
+
+.figure-box[data-tint="leak"] {
+  background: color-mix(in srgb, var(--plot-leak) 10%, transparent);
+}
+
+.figure-head {
+  margin: 0 0 0.45rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.figure-unit {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.figure-pair {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.4rem;
+}
+
+.figure-big {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.figure-pair .figure-big:last-child {
+  text-align: right;
+}
+
+.figure-rows {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem 0.75rem;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+.figure-rows > div {
+  display: contents;
+}
+
+.figure-rows dt {
+  color: var(--muted);
+}
+
+.figure-rows dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  /* A figure is one thing: "08h 00m" does not break across two lines. */
+  white-space: nowrap;
+}
+
+/* A legend that stays reachable however far down the stack of plots you are. */
+.legend-dock {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.legend-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+}
+
+.legend-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.legend-panel {
+  width: min(18rem, calc(100vw - 2.5rem));
+  max-height: min(24rem, calc(100vh - 8rem));
+  overflow-y: auto;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
+}
+
+.legend-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.legend-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.legend-list li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.15rem 0;
+}
+
+.legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.legend-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.legend-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+/* The charts are stacked with no gap, so one time axis runs down the whole stack
+   and a cursor at one place means the same place in every chart. */
+.plot {
+  margin: 0;
+}
+
+.plot .uplot {
+  width: 100%;
+  font-family: inherit;
+}
+
+.plot .u-title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: left;
+  /* Lines the title up with the plotting area; the width is set from plots.js,
+     which is the one place the axis width is decided. */
+  padding-left: var(--plot-axis, 64px);
+  color: var(--text);
+}
+
+.plot .u-legend {
+  margin-top: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.plot .u-legend .u-marker {
+  width: 10px;
+  height: 10px;
+}
+
+.plot .u-legend .u-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.plot .u-select {
+  background: var(--accent);
+  opacity: 0.18;
+}
+
+.plot-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.9rem;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.plot-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+.plot-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
 }
 
 .narrow .calendar {
@@ -349,12 +734,36 @@ button:disabled {
   gap: 0.25rem;
 }
 
+/* The navigation reads as a table of contents rather than a row of controls:
+   no frames, a group set like a heading, its sections in small capitals. */
 .manual-nav button {
+  width: 100%;
+  padding: 0.3rem 0.45rem;
+  border: none;
+  background: none;
   text-align: left;
 }
 
-.manual-group {
-  margin: 0.6rem 0 0.1rem;
+.manual-nav button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.manual-nav button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Each group in the manual's navigation collapses, so the list of sections is
+   only as long as the part being read. */
+.manual-group + .manual-group {
+  margin-top: 0.25rem;
+}
+
+.manual-group-button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.03em;
@@ -362,8 +771,34 @@ button:disabled {
   color: var(--muted);
 }
 
-.manual-group:first-child {
-  margin-top: 0;
+.manual-group-button[aria-expanded="true"] {
+  color: var(--text);
+}
+
+.manual-group-button::after {
+  content: "+";
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.manual-group-button[aria-expanded="true"]::after {
+  content: "-";
+}
+
+.manual-group-items button {
+  font-size: 0.8rem;
+  font-variant: small-caps;
+  letter-spacing: 0.03em;
+}
+
+.manual-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin: 0.3rem 0 0.1rem 0.55rem;
+  padding-left: 0.55rem;
+  border-left: 1px solid var(--border);
 }
 
 .pull {
@@ -375,8 +810,7 @@ button:disabled {
 }
 
 .manual-nav button[aria-current="true"] {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+  font-weight: 700;
 }
 
 .manual-pane {

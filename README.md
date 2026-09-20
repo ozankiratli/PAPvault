@@ -2,7 +2,7 @@
 
 A single web page for looking at your own PAP therapy data. Your data stays on your computer: the page reads the SD card's folder in your browser, and there is nowhere for it to send anything.
 
-**It is being built.** Today the page opens a folder and lists what is in it. Reading the data inside those files is the next piece of work.
+**It is being built.** Today the page opens a folder, reads the night recordings on the card, and draws them: a figure per night for whatever period you pick, and, for a single night, a stack of aligned plots with one cursor line across all of them and zoom shared between them.
 
 ## What it promises
 

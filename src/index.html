@@ -7,6 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PAPvault</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 10V7.4a4 4 0 0 1 8 0V10' fill='none' stroke='%235b8ac9' stroke-width='2.2'/%3E%3Crect x='3.2' y='9.8' width='17.6' height='10.6' rx='2.6' fill='%235b8ac9'/%3E%3Cpath d='M6.3 16.6h1.9l-1.9 2h1.9M10.4 15h2.4l-2.4 2.5h2.4M15 13.3h3l-3 3.2h3' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../lib/uplot/uPlot.css">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -42,11 +43,17 @@
   </header>
   <main class="cards">
     <section class="card summary-card" aria-labelledby="summary-title">
-      <div class="summary">
-        <h2 id="summary-title" class="card-title">Summary</h2>
-        <p class="selection" id="selection-label"></p>
-        <p class="empty">No data loaded.</p>
-      </div>
+      <h2 id="summary-title" class="card-title">Summary</h2>
+      <div id="summary-body"><p class="empty">No data loaded.</p></div>
+      <div id="event-plot"></div>
+    </section>
+    <section class="card plots-card" aria-labelledby="plots-title">
+      <h2 id="plots-title" class="card-title">Plots</h2>
+      <div id="summary-plots"></div>
+      <div class="plot-picker" id="plot-picker" role="group" aria-label="Which plots to show" hidden></div>
+      <div id="plots-body"><p class="empty">Plots appear here once data is loaded.</p></div>
+    </section>
+    <section class="card calendar-card" id="calendar-card" aria-label="Calendar">
       <div class="calendar-slot" id="calendar-card-slot">
         <div class="calendar" id="calendar" role="group" aria-label="Choose a CPAP day or a range of them">
           <div class="calendar-head">
@@ -54,20 +61,33 @@
             <button type="button" class="calendar-month" id="calendar-month" aria-label="Choose a month"></button>
             <button type="button" class="calendar-nav tip" id="calendar-next" aria-label="Next month">&rsaquo;</button>
           </div>
+          <div class="calendar-steps">
+            <button type="button" class="calendar-step" id="day-prev">&lsaquo; Previous day</button>
+            <button type="button" class="calendar-step" id="day-next">Next day &rsaquo;</button>
+          </div>
           <div class="calendar-grid" id="calendar-grid"></div>
-          <p class="calendar-hint">Click a day, then another to select a range. Days run from noon to noon, so each night belongs to the date it began.</p>
+          <p class="calendar-hint">Click a day, then another to select a range. Days run from 6 in the morning to 6 the next morning, so each night belongs to the date it began.</p>
         </div>
       </div>
     </section>
-    <section class="card plots-card" aria-labelledby="plots-title">
-      <h2 id="plots-title" class="card-title">Plots</h2>
-      <p class="empty">Plots appear here once data is loaded.</p>
-    </section>
   </main>
+  <div class="legend-dock" id="legend-dock" hidden>
+    <div class="legend-panel" id="legend-panel" hidden>
+      <p class="legend-title">Events, as the device named them</p>
+      <ul class="legend-list" id="legend-list"></ul>
+      <p class="legend-note">Colors are labels only. Nothing is meant by which color a name was given.</p>
+    </div>
+    <button type="button" class="legend-button" id="legend-toggle" aria-expanded="false" aria-controls="legend-panel">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="6" height="6" rx="1.5"/><rect x="3.5" y="14" width="6" height="6" rx="1.5"/><path d="M13 8h7.5M13 17h7.5"/></svg>
+      Legend
+    </button>
+  </div>
+
   <footer>
     <p>&copy; 2026 <a href="https://ozankiratli.github.io/" rel="noreferrer">Ozan L. Z. Kiratli, PhD</a> | Bioinformatician</p>
     <p>Free software under the <a href="https://www.gnu.org/licenses/gpl-3.0.html" rel="noreferrer">GNU General Public License, version 3</a>. Built with plain HTML, CSS and JavaScript, and served by GitHub Pages.</p>
     <p>No trackers, no analytics, and nothing stored anywhere but your own computer. <a href="https://github.com/ozankiratli/PAPvault" rel="noreferrer">Source code</a>.</p>
+    <p class="version">PAPvault <!-- version --></p>
   </footer>
 
   <dialog class="modal" id="calendar-dialog" aria-labelledby="calendar-dialog-title">
@@ -104,12 +124,11 @@
       <p>PAPvault reads the data here, in your browser. Nothing is sent anywhere.</p>
       <div class="drop-zone" id="folder-drop">
         <p>Drag the folder here, or</p>
-        <button type="button" id="folder-pick">Open Folder</button>
+        <button type="button" id="folder-pick">Read Data</button>
         <input type="file" id="folder-input" webkitdirectory multiple hidden>
       </div>
-      <p class="note">Your browser's own dialog may use the word "upload" when it asks. That is its wording for letting a page open a folder. This page has nowhere to send anything, and its security policy forbids every connection.</p>
-      <p id="folder-status" class="empty">No folder opened.</p>
-      <p class="empty">Reading the data inside the files is not built yet.</p>
+      <p class="note"><strong>The window your browser opens next is its own, and it may be titled "Upload".</strong> PAPvault cannot change what the browser calls it: choosing a folder is the same browser feature whether a page uploads it or, as here, reads it where it sits. Nothing is sent anywhere. This page has nowhere to send it, and its security policy forbids every connection.</p>
+      <div id="folder-status"><p class="empty">No folder opened.</p></div>
     </div>
   </dialog>
 
@@ -139,6 +158,10 @@
     </div>
   </dialog>
 </div>
+<script src="../lib/uplot/uPlot.iife.js"></script>
+<script src="edf.js"></script>
+<script src="card.js"></script>
+<script src="plots.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

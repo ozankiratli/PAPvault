@@ -25,3 +25,17 @@ The Write tool does the same. When this file was created, its own first example 
 ## A probe page is a copy of the build it was made from
 
 *Found 2026-09-19.* Probe pages are made by copying `dist/index.html` and adding scripts, so they hold the page as it was built at that moment. A screenshot of one made before the last `python3 build.py` showed the old text buttons after the icons had replaced them. Regenerate every probe page after each build, and check that it holds something only the new build has before looking at what it shows.
+
+## Canvas text is not drawn in the color you asked for
+
+*Found 2026-09-20.* A probe that reads a canvas looked for pixels whose color was exactly the color the page had filled its text with. It found the numerals `4`, `3` and `2` and reported that the `1` on the fourth bar was missing, when a screenshot of the same page showed it plainly. Chromium draws text with subpixel antialiasing, which gives each of the three channels its own coverage, so a thin glyph can have no pixel at the exact color asked for. A wider numeral has at least one fully covered pixel and matches; a `1` at eleven pixels may have none.
+
+A filled rectangle does not have this problem: its interior is the exact color, and only its edges vary, and then only in alpha.
+
+So match text by nearness rather than by equality -- the probe here takes any drawn pixel within 80 of the text color on every channel, which is far from the only other thing drawn in that area, the gridlines. Before trusting a pixel check that reports something missing, screenshot the same page and look.
+
+## A headless screenshot comes back blank after a programmatic scroll
+
+*Found 2026-09-20.* A probe scrolled the page with `window.scrollTo(0, 900)` and then the run was screenshotted to see the sticky bar over the plots. Every such capture was the page background and nothing else, at two virtual time budgets and from two different probe pages, while a `--dump-dom` run of the same page reported the scroll had happened and the layout was right. A capture taken without scrolling, of the same page, came out correctly.
+
+Do not read a blank capture as a blank page. Measure the rendered geometry from inside the page instead -- `getBoundingClientRect()` for where something sits, `document.elementFromPoint` and `elementsFromPoint` for what is drawn on top of what -- or make the window taller than the content so that nothing has to scroll.
