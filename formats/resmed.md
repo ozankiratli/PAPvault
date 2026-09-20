@@ -113,6 +113,8 @@ Some details of that table:
 
 ## Across the series (R-006)
 
+**These labels come from OSCAR, and PAPvault says so publicly** (Z, 2026-09-19), in `SOURCES.md` and in the user documentation. For the AirSense 10 they are also checked against Z's own card; for the S9 and the 11 series they are not.
+
 A comment in OSCAR's reader says its table of labels combines the S9, AirSense 10 and AirSense 11 variants with those of devices set to other languages (lines 3960 and 3961). For each signal the prototype reads, the table lists these labels:
 
 | The prototype's name | Labels in the table | Line |
@@ -155,11 +157,11 @@ What the table establishes, and what it doesn't:
 No source gives these, and a reader must take them from each file's header, never assume them:
 - the physical and digital extremes of each signal;
 - the record duration, and the number of samples per record. These are kept consistent with the name suffixes;
-- the physical dimension of each signal, unless Z supplies it;
+- the physical dimension of each signal;
 - the transducer and prefiltering fields;
 - whether a signal file is plain EDF or `EDF+C`;
 - how a file holding only events divides into records, within the rules above;
-- the event texts, unless Z supplies realistic ones for the cases;
+- the event texts. The generated data need not look realistic, since Z tests realism on a real card;
 - what the patient and recording fields hold: a marker string, so that a check can fail if it ever reaches the page.
 
 ## Open

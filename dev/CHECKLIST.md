@@ -75,3 +75,27 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 **How:** select a range on a wide window; narrow the window below 650 pixels; open Calendar from the top bar; widen the window again.
 
 **Failure:** below 650 pixels the Calendar button is missing or the calendar still shows in the card; the dialog's calendar does not show the range selected before; or after widening, the calendar is not back in the card.
+
+## `contrast` -- the colors stay readable in both themes
+
+**Protects:** that a change to the palette does not quietly make text hard to read, especially where text sits on the accent color.
+
+**How:** in both themes, look at a selected day and a selected month in the calendar, the current section in the manual, a link, and the muted text under the calendar. The agent's measured ratios at the last change were 5.07 for white on the selected day in light, 5.85 for the dark theme's, and above 4.6 for every link and muted line.
+
+**Failure:** any text that is hard to read against what is behind it, a selected day whose number is faint, or a focus outline that cannot be seen against the card.
+
+## `manual-truth` -- the manual says only what is true today
+
+**Protects:** the manual is part of what PAPvault delivers, and a claim in it that the page does not keep is worse than no manual at all.
+
+**How:** open Manual and read every section against the page as it stands: what is built and what is not, which files are read, which fields are skipped, which machines are claimed, and what the account of how it was built says.
+
+**Failure:** any sentence that is not true on the day it is read, a feature described as working before it works, or a machine named as supported that has not been tested.
+
+## `folder-select` -- choosing a folder reads nothing and sends nothing
+
+**Protects:** the promise, at the one moment a reader hands the page their data. Choosing a folder gives the page a list of files and nothing else.
+
+**How:** open the developer tools' network panel, then Select Folder, and choose a copy of a card with the Choose Folder button. Do it again by dragging the same folder onto the box. Compare the count the page shows with the number of files in the folder, counted outside the browser.
+
+**Failure:** any request in the network panel; a count that does not match; a file's contents appearing anywhere on the page; or the drag not being recognized. The browser asking whether to upload the files is the browser's own wording and is not a failure, but the page saying anything that is not true about it is.

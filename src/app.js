@@ -267,6 +267,131 @@
     });
   });
 
+  const manualNav = document.getElementById("manual-nav");
+  const manualButtons = Array.prototype.slice.call(manualNav.querySelectorAll("button"));
+  const manualPanes = Array.prototype.slice.call(document.querySelectorAll(".manual-pane"));
+
+  function showManualSection(id) {
+    manualPanes.forEach(function (pane) {
+      pane.hidden = pane.id !== id;
+    });
+    manualButtons.forEach(function (button) {
+      if (button.dataset.section === id) {
+        button.setAttribute("aria-current", "true");
+      } else {
+        button.removeAttribute("aria-current");
+      }
+    });
+  }
+
+  manualButtons.forEach(function (button) {
+    button.addEventListener("click", function () {
+      showManualSection(button.dataset.section);
+    });
+  });
+
+  showManualSection(manualPanes[0].id);
+
+  // A chosen folder is held here as {file, path} pairs. No file is opened.
+  let chosenFiles = [];
+  const folderInput = document.getElementById("folder-input");
+  const folderPick = document.getElementById("folder-pick");
+  const folderDrop = document.getElementById("folder-drop");
+  const folderStatus = document.getElementById("folder-status");
+
+  function folderNameOf(items) {
+    for (const item of items) {
+      const top = item.path.split("/")[0];
+      if (top && top !== item.file.name) {
+        return top;
+      }
+    }
+    return "";
+  }
+
+  function showChoice(items) {
+    chosenFiles = items;
+    if (!items.length) {
+      folderStatus.textContent = "That folder holds no files.";
+      return;
+    }
+    const name = folderNameOf(items);
+    const count = items.length === 1 ? "1 file" : items.length + " files";
+    folderStatus.textContent = (name || "Folder") + " opened: " + count + ", none of them read yet.";
+  }
+
+  folderPick.addEventListener("click", function () {
+    folderInput.click();
+  });
+
+  folderInput.addEventListener("change", function () {
+    const items = Array.prototype.map.call(folderInput.files, function (file) {
+      return { file: file, path: file.webkitRelativePath || file.name };
+    });
+    showChoice(items);
+  });
+
+  function readEntries(reader) {
+    return new Promise(function (resolve, reject) {
+      reader.readEntries(resolve, reject);
+    });
+  }
+
+  // A directory reader hands back one batch at a time, and an empty batch ends the listing.
+  async function collect(entry, prefix) {
+    if (entry.isFile) {
+      const file = await new Promise(function (resolve, reject) {
+        entry.file(resolve, reject);
+      });
+      return [{ file: file, path: prefix + entry.name }];
+    }
+    const reader = entry.createReader();
+    let items = [];
+    let batch = await readEntries(reader);
+    while (batch.length) {
+      for (const child of batch) {
+        items = items.concat(await collect(child, prefix + entry.name + "/"));
+      }
+      batch = await readEntries(reader);
+    }
+    return items;
+  }
+
+  folderDrop.addEventListener("dragover", function (event) {
+    event.preventDefault();
+    folderDrop.classList.add("over");
+  });
+
+  folderDrop.addEventListener("dragleave", function () {
+    folderDrop.classList.remove("over");
+  });
+
+  folderDrop.addEventListener("drop", function (event) {
+    event.preventDefault();
+    folderDrop.classList.remove("over");
+    const transfer = event.dataTransfer;
+    const entries = [];
+    // The entries have to be taken while this event is being handled.
+    for (const item of transfer ? transfer.items : []) {
+      const entry = item.webkitGetAsEntry ? item.webkitGetAsEntry() : null;
+      if (entry) {
+        entries.push(entry);
+      }
+    }
+    if (!entries.length) {
+      folderStatus.textContent = "That drop held no folder this browser can open.";
+      return;
+    }
+    folderStatus.textContent = "Listing the folder...";
+    Promise.all(entries.map(function (entry) {
+      return collect(entry, "");
+    })).then(function (lists) {
+      showChoice([].concat.apply([], lists));
+    }).catch(function () {
+      folderStatus.textContent = "That folder could not be listed.";
+    });
+  });
+
   const calendar = document.getElementById("calendar");
   const cardSlot = document.getElementById("calendar-card-slot");
   const dialogSlot = document.getElementById("calendar-dialog-slot");

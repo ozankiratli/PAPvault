@@ -11,7 +11,9 @@ Why those and not the rest:
 - **An AirSense 10 card has an independent check** in Z's R prototype.
 - **Every other machine's format is known only through other projects' reverse engineering,** and a search for readers independent of OSCAR found one for BMC and one for Yuwell, and none for the rest (`dev/READING-LOG.md`, R-016). A reader built from one project's description and checked against that same project has been checked against itself.
 
-A machine joins that list when Z can test on a card of it. What it then needs is in `.claude/development-notes/machine-survey.md`. Even inside ResMed, only the AirSense 10 has a card to check against: the S9 and the 11 series are read the same way, and until Z has one of those cards, that is an expectation rather than a tested fact.
+Even inside ResMed, only the AirSense 10 has a card to check against. The S9 and the 11 series are read the same way, and until Z has one of those cards that is an expectation rather than a tested fact. **Their field names come from OSCAR, and PAPvault says so where a reader of PAPvault will see it** (Z, 2026-09-19): in `SOURCES.md` and in the user documentation, not only in these notes.
+
+**How a machine joins the list.** Z, 2026-09-19: *"as people report issues, send me even fake data for different machines I'll be adding them."* So a machine arrives through its users: a report, and data Z can test with, real or made up. What the machine then needs before it is supported is in `.claude/development-notes/machine-survey.md`, and the reads already named for it are parked in `dev/READING-LOG.md`.
 
 **How PAPvault reads a card follows Z's `prepare_data()`**, in `CPAP_old/data_prep.R`. Z, 2026-09-19: *"For ResMed, we will use the time implementation that I built. For the others, we will use a similar implementation. I really think the way I implemented the data prep is good. It can be improved but it is the implementation we will use."* Under that design:
 - a sample's time is its file's start time plus the sample's offset in the file;
@@ -144,7 +146,7 @@ Z agreed this workflow on 2026-09-19. Each format family goes through these step
    - Each fact cites its log entry and says where it came from: a specification, Z, or a single other project.
    - A value no source gives, such as a calibration range, is marked as the generator's choice. A reader must not depend on it.
    - Z reviews the file before any code is written.
-4. **Agree the cases with Z**, also before any code: what each synthetic card exercises and what it must show. Z's realistic patterns are quoted in the case that uses them. A case whose answer depends on something Z has not decided is marked undecided, not guessed.
+4. **Agree the cases with Z**, also before any code: what each synthetic card exercises and what it must show. A case whose answer depends on something Z has not decided is marked undecided, not guessed. **The data need not look realistic.** Z, 2026-09-19: *"The generated data does not have to be realistic. I'll test with real data. On my end."* So a case is built to exercise something and to carry an answer known by construction, and a signal may be any shape that makes its answer easy to check.
 5. **Generate** from the format file and the cases alone, in a new session.
    - One Python standard-library script per family, in `dev/synthetic/`. It is seeded and writes the same bytes on every run.
    - Each case goes to `dev/synthetic/out/<family>/<case>/`: the card, and an `answer.json` derived from how the card was built.
@@ -163,6 +165,7 @@ Only ResMed has a generator for now, since only ResMed is supported. A machine t
 ## Building and running it
 
 - `python3 build.py` writes `dist/index.html` and prints its SHA-256. `dist/` is build output and is not tracked.
+- **The manual is `docs/manual.md`,** and the build renders it into the page. It uses a small subset of Markdown, listed at the top of `build.py`: `#` for a group in the navigation, `##` for a section, `>` for a pull quote, `-` and `1.` for lists, and `**bold**` and `` `code` `` within a line. Everything is escaped, so the manual can never put markup into the page.
 - Opening `dist/index.html` straight from disk is the offline page, and needs no server.
 - **When the agent needs a server, it uses port 8765** (Z, 2026-09-18): `python3 -m http.server 8765 --bind 127.0.0.1 --directory dist`. It records the PID when it starts one, stops only that PID, and never touches a server it did not start.
 - **A browser the agent starts for a check is headless, with its own temporary profile directory, and exits on its own.** It never attaches to a browser Z is using.
@@ -182,7 +185,7 @@ Before calling a file done, grep for `on purpose | deliberately | rather than | 
 | Where | What |
 |---|---|
 | the source | what the code below does, what it returns, a coupling or constraint invisible from here |
-| the user documentation | anything that changes what a displayed number **means**, or that a person reading their own data needs. It is authoritative, and nothing in it is repeated in the source. Where it lives has not been decided. |
+| the user documentation | anything that changes what a displayed number **means**, or that a person reading their own data needs. It is authoritative, and nothing in it is repeated in the source. It lives in `docs/manual.md` (Z, 2026-09-19), which the build renders into the page's Manual dialog. |
 | `.claude/development-notes/` | how it got here: design churn, alternatives dropped, measurements, who decided what and when |
 
 **No source file references the notes.** A note is dated and not updated to follow the code, so a pointer to one imports a description of the code as it used to be.

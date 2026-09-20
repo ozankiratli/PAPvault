@@ -325,6 +325,28 @@ Nothing in an entry is rewritten afterwards; an entry only gains lines. The entr
 - **Second source (R-016):** none found.
 - **Parked:** 2026-09-19, with R-007.
 
+## R-017: PoolSeqFlow's manual, for how a manual of Z's is built
+
+- **Named:** 2026-09-19
+- **Task:** PAPvault's manual. Z, 2026-09-19: *"I was thinking we build the manual as I did in PoolSeqfFow's manual -> rendered as website but this one lives in a modal box that sections show up when selected and all."*
+- **Source:** `/home/tholian/Nextcloud/GitHub/PoolSeqFlow`, Z's own project: `manual/PoolSeqFlow-manual.md`, and whatever renders it, if the manual folder holds that
+- **Facts sought:** how Z's manual is put together, and nothing about PoolSeqFlow itself:
+  - what the sections are and in what order;
+  - how a reader moves between them;
+  - how the account of working with the agent is laid out, in the *Development History and Principles* part;
+  - the tone and the level of detail Z writes them at.
+- **Not read:** the rest of that repository. Its science, its stack and its code are no business of this task.
+- **Cleared:** 2026-09-19
+- **Done:** 2026-09-19. Read: the manual folder's file list, the manual's headings, its *Development History and Principles* section, and the subheadings of the pages under it. Nothing outside `manual/` was opened, and no sentence of it is reproduced here.
+  - **What was found, as shape rather than content:**
+    - one long markdown file, rendered as a site by mkdocs-material, with comments marking each section and page and the label it takes in the navigation;
+    - sections of several pages each, and pages built from short subheadings, tables of dates and versions, and pull quotes;
+    - a development section of four pages, read in order: how it was built, why the repository is kept living, how it is verified, and what was done with an AI agent;
+    - that section opens by saying why it is in the manual at all: a reader deciding whether to trust a tool is asking a user's question, not a developer's;
+    - the agent page runs from what the working loop looks like, through two different ways it failed, to the rules those produced and what does not carry to other projects;
+    - a first-person voice throughout, and a plain statement that the author is answerable for every sentence, whatever helped write it.
+  - **Where it went:** into the manual in `src/index.html`, as its shape: sections named in the navigation, a development part of several pages, and Z's voice in them. 2026-09-19
+
 ## R-016: are there readers other than OSCAR?
 
 - **Named:** 2026-09-19
