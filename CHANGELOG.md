@@ -26,7 +26,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 - **Only the AirSense 10 has been checked against a real card.** The S9 and the 11 series are read the same way, but their signal names come from OSCAR and nobody here has tested them.
 - **Oximetry is turned off.** ResMed records it only on the AirSense 10 and a compatible oximeter is hard to find, so there is no card to test it against and no oximetry file is opened.
-- **There is no automated test suite.** Every release is checked by hand against `dev/CHECKLIST.md`, and what was checked is written into `dev/VERIFICATION.md`.
+- **No check here has ever seen a real card.** The checks in `dev/tests/` run the reader against synthetic cards whose answers are known by construction, and both the reader and the generator were written in this repository. Every release is also gone through by hand against `dev/CHECKLIST.md`, on a real card, and what was checked is written into `dev/VERIFICATION.md`.
 
 ### Commits
 
@@ -41,6 +41,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 - (7be94b8) Document picker, manual, readme
 - (e4fad7e) synthetic data generation
 - (6309c32) v0.0.1 work is complete
+- (a3bcda8) Workflows added, versioning prep
+- (c8f1786) tests added
+- (f9c5679) minor bug fixes about builds
 
 ---
 
