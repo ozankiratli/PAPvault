@@ -53,3 +53,15 @@ Print the line with `echo` instead, and take the field from the variable:
     first="${said%% *}"
 
 The same applies to any `tee /dev/stdout` or `tee /dev/fd/N` in a script whose output is redirected to a file, which includes every CI log. **A run that passes is not evidence its log is complete** -- count the sections, or check that the first one is there.
+
+## A Pages deploy started by a release was blocked by the environment, not by the workflow
+
+*Found 2026-09-20.* `pages.yml` ran on `release: published`, its `build` job went green, and its `deploy` job was rejected:
+
+> Tag "v0.0.1" is not allowed to deploy to github-pages due to environment protection rules.
+
+That message is the whole of what was observed. The `github-pages` environment on that repository would not accept a deployment whose ref was a tag. **Whether that rule is GitHub's default or something the repository had, nobody here checked**, and the first version of this entry asserted it was the default, which was not established.
+
+What follows from the message alone: a workflow run started by a release carries the tag as its ref, so if an environment will not accept a tag, nothing written in the YAML can make that deployment go through. PAPvault's answer was to stop deploying from a release at all and deploy from `main` instead, which is what PoolSeqFlow does and what Z asked for.
+
+Two things made this hard to see. The run is not obviously a failure at a glance, because the job that does the work succeeded and only the last job stopped. And the symptom reported first was "the second workflow never triggered", which sends you looking at the trigger, the default branch and the token -- the three places a workflow genuinely fails to start. **When a chained workflow appears not to have run, confirm whether a run exists before reasoning about why it does not.**

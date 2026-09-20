@@ -2,16 +2,31 @@
 
 Two workflows, and a person between them.
 
-1. **`release.yml`** runs when a tag is pushed. It builds the page, checks it, and creates a **draft** release carrying the page, its checksums, and a source tarball.
-2. **`pages.yml`** runs when that release is **published**. It builds the page from the tag and deploys the website.
+1. **`release.yml`** runs when a tag is pushed. It builds the page, checks it, and publishes a GitHub release carrying the page, its checksums, and a source tarball.
+2. **`pages.yml`** runs when a tag is pushed. It builds the page and deploys the website.
 
-So a push to a branch changes nothing anyone can see, and the website changes only when a release is published. What is on the site is always a version someone decided to release.
+Both start from the same push, and neither waits on the other. Push the tag and the site goes up and the release appears. A push to a branch does neither.
 
 This follows the release system Z built for PoolSeqFlow, adapted to a project that ships one HTML file rather than a pipeline. What was read from it, and what was left behind as not applicable, is `R-021` in `dev/READING-LOG.md`.
 
 ## Once, before the first release
 
-Set **Settings -> Pages -> Build and deployment -> Source** to **GitHub Actions**. It cannot be "Deploy from a branch": `dist/` is build output and is not in the repository, so no branch holds a finished page to serve. Until this is set, `actions/configure-pages` fails the run early and says so.
+Two settings, both in the repository's own Settings, and both needed before a tag can publish anything.
+
+**Settings -> Pages -> Build and deployment -> Source** must be **GitHub Actions**. It cannot be "Deploy from a branch": `dist/` is build output and is not in the repository, so no branch holds a finished page to serve. Until this is set, `actions/configure-pages` fails the run early and says so.
+
+**Settings -> Environments -> `github-pages` -> Deployment branches and tags** must allow the release tags. Set it to **Selected branches and tags** and add two rules:
+
+| Type | Pattern | What it is for |
+|---|---|---|
+| Tag | `v*` | every release |
+| Branch | `main` | running the workflow by hand |
+
+This is what makes "the site changes only on a release" a rule GitHub enforces rather than a habit. `pages.yml` only listens for tags, but if that were ever widened by accident, the environment would still refuse the deployment.
+
+On 2026-09-20 this repository refused a deployment from the `v0.0.1` tag before those rules existed: *"Tag "v0.0.1" is not allowed to deploy to github-pages due to environment protection rules."* What the environment allowed before that was not recorded, so treat the table above as the thing to set, not as a description of what GitHub starts with.
+
+The build half of a run succeeds whether or not this is right, so the failure shows up as a workflow that ran, went green on `build`, and stopped at `deploy`.
 
 ## Each release
 
@@ -28,22 +43,12 @@ Set **Settings -> Pages -> Build and deployment -> Source** to **GitHub Actions*
        git add -A && git commit -m 'Version bump 0.1.0'
        git tag v0.1.0
 
-6. **Push the tag.**
+6. **Push the tag.** This is the only step that publishes anything.
 
        git push && git push --tags
 
-   `release.yml` runs and leaves a draft release with three files attached.
-7. **Read the draft**, add anything the changelog did not carry, and **publish it**. That is what deploys the website: `pages.yml` starts on the release being published.
-8. **Watch `pages.yml` finish**, and open the site.
-
-### Why the release is a draft
-
-Two reasons, and either alone would be enough.
-
-- **A release created by a workflow's own token does not start another workflow.** GitHub does not raise the event, to stop workflows triggering each other in a loop. So a release that `release.yml` published itself would leave `pages.yml` sitting still. A person publishing the draft is a real event, and it fires.
-- **It is the last moment to read the notes** before anyone else does.
-
-To publish straight from the tag instead, set `draft: false` in `release.yml` and deploy the site by running `pages.yml` by hand afterwards.
+   The tag push starts both workflows. `release.yml` publishes the release with its three files; `pages.yml` deploys the site. Neither waits on the other and neither needs anything from you. `git push` is there so `main` is not left behind -- it triggers nothing.
+7. **Watch both finish**, and open the site. **There is no step after this**: nothing to publish by hand, no draft to approve, no workflow to start.
 
 ### Releases are immutable
 
@@ -51,7 +56,7 @@ The repository has release immutability turned on, so once a release is publishe
 
 That is the right setting for this project, and it is what makes the rest of it mean anything. PAPvault's claim is that anyone can rebuild the page from the source at a tag and get the same bytes. If the tag could be moved, or the attached `index.html` swapped, the checksum in `SHA256SUMS` would be a statement about a moment rather than about a version. Immutability is what turns it into a fact someone can check a year later.
 
-What it costs is that **nothing can be patched in place.** A wrong file, a wrong checksum or a release body naming the wrong version is fixed by releasing again with the next patch number, never by editing what is there. So two things earlier in this list stop being politeness and start being the safety net: **step 4, the rehearsal**, which runs every check while a mistake is still an ordinary commit, and **the draft**, which is the last state that can still be thrown away. A draft is not published, so it is not yet immutable; deleting one and tagging again costs nothing.
+What it costs is that **nothing can be patched in place.** A wrong file, a wrong checksum or a release body naming the wrong version is fixed by releasing again with the next patch number, never by editing what is there. That makes **step 4, the rehearsal**, the safety net rather than a courtesy: it is the last point at which a mistake is still an ordinary commit. There is nothing after the tag that can be taken back.
 
 ## What is attached to a release
 

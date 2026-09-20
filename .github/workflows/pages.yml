@@ -1,31 +1,33 @@
 name: Publish the website
 
-# The website changes when a release is published, and at no other time. A push to any
+# The website is rebuilt when a tag is pushed, and at no other time. A push to any
 # branch, main included, changes nothing anyone can see.
 #
-# release.yml creates the release as a draft when a tag is pushed. Publishing it is
-# what starts this. That order is deliberate twice over: it gives the release notes a
-# moment to be read before anyone sees them, and a release created by a workflow's own
-# token does not raise an event that starts another workflow, so a person publishing it
-# is what makes this fire at all.
+# That is enforced by GitHub rather than by this file. The `github-pages` environment
+# below only accepts a deployment whose ref it has been told to allow, so a push to a
+# branch cannot deploy even if someone changes what is written here. A paths list would
+# have been a rule anyone could widen by accident.
 #
-# The page is built here rather than carried over from release.yml. The build uses
-# nothing but the Python standard library and gives the same bytes every time, so
-# building it twice is cheaper than passing an artifact between workflows -- and it
-# means the site is built from the tag, not from something a previous run left behind.
+# Two one-time repository settings this depends on:
 #
-# One-time repository setting this depends on:
 #   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
 #
-# It cannot be "Deploy from a branch": dist/ is build output and is not in the
-# repository, so no branch holds a finished page to serve.
+#     It cannot be "Deploy from a branch": dist/ is build output and is not in the
+#     repository, so no branch holds a finished page to serve.
 #
-# workflow_dispatch republishes the newest release, for when the Pages setting was
-# wrong or a deployment failed for a reason outside the repository.
+#   Settings -> Environments -> github-pages -> Deployment branches and tags
+#
+#     Must allow the tag pattern v*, and the branch main for a manual run. On
+#     2026-09-20 this repository refused a deployment from v0.0.1 until it did:
+#     `Tag "v0.0.1" is not allowed to deploy to github-pages due to environment
+#     protection rules`. Nothing in this file can work around that, by design.
+#
+# workflow_dispatch republishes whatever it is run against, for when a deployment failed
+# for a reason outside the repository.
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -42,37 +44,19 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Work out which release is being published
-        id: which
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "release" ]; then
-            tag='${{ github.event.release.tag_name }}'
-          else
-            tag="$(gh release view --json tagName --jq .tagName --repo '${{ github.repository }}')"
-            [ -n "$tag" ] || { echo "this repository has no release to publish" >&2; exit 1; }
-          fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "Publishing the site from $tag"
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ steps.which.outputs.tag }}
 
-      - name: The tag being published and VERSION must say the same thing
+      - name: The tag and VERSION must say the same thing
+        if: github.ref_type == 'tag'
         run: |
           set -euo pipefail
           declared="$(tr -d '[:space:]' < VERSION)"
-          tagged="${TAG#v}"
+          tagged="${GITHUB_REF_NAME#v}"
           if [ "$tagged" != "$declared" ]; then
-            echo "the site would carry v$declared while the release says $TAG" >&2
+            echo "the site would carry v$declared while the tag says $GITHUB_REF_NAME" >&2
             exit 1
           fi
           echo "  ok  both say $declared"
-        env:
-          TAG: ${{ steps.which.outputs.tag }}
 
       - name: Build
         run: |
@@ -80,7 +64,15 @@ jobs:
           python3 build.py
           ls -l dist/
 
-      # Fails early and clearly if Pages is not enabled for the repository.
+      - name: The page carries the version it was built from
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          grep -q ">v${version}<" dist/index.html || {
+            echo "the built page does not show v${version}" >&2; exit 1; }
+          echo "  ok  the page shows v${version}"
+
+      # Fails early and clearly if Pages is not enabled.
       - uses: actions/configure-pages@v6
 
       - uses: actions/upload-pages-artifact@v5
