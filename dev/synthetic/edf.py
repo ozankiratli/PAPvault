@@ -1,6 +1,6 @@
 """Write EDF and EDF+ files for the synthetic cards.
 
-Everything here comes from formats/resmed.md, which cites the EDF
+Everything here comes from dev/formats/resmed.md, which cites the EDF
 specification (R-001) and sections 2.1 and 2.2 of the EDF+ specification
 (R-002) for each fact. No other source was open while this was written.
 
@@ -70,7 +70,7 @@ class Signal:
         self.prefiltering = prefiltering
 
     def to_physical(self, digital):
-        """The value a reader must arrive at, by the mapping in formats/resmed.md."""
+        """The value a reader must arrive at, by the mapping in dev/formats/resmed.md."""
         span = (self.physical_max - self.physical_min) / (self.digital_max - self.digital_min)
         return self.physical_min + (digital - self.digital_min) * span
 

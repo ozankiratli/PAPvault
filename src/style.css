@@ -356,7 +356,12 @@ button:disabled {
   color: var(--muted);
 }
 
-.version {
+.brand-version {
+  margin-left: 0.35rem;
+  font-size: 0.8rem;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 

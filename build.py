@@ -48,6 +48,7 @@ PLOTS_SCRIPT_MARKER = '<script src="plots.js"></script>'
 SCRIPT_MARKER = '<script src="app.js"></script>'
 MANUAL_MARKER = "<!-- manual -->"
 VERSION_MARKER = "<!-- version -->"
+MANUAL_VERSION_TOKEN = "{{version}}"
 
 
 def read(name):
@@ -184,9 +185,13 @@ def render_manual(text):
 
 
 def replace_once(html, marker, replacement):
+    return replace_each(html, marker, replacement, 1)
+
+
+def replace_each(html, marker, replacement, wanted):
     count = html.count(marker)
-    if count != 1:
-        fail(f"expected {marker!r} once in src/index.html, found it {count} times")
+    if count != wanted:
+        fail(f"expected {marker!r} {wanted} times in src/index.html, found it {count} times")
     return html.replace(marker, replacement)
 
 
@@ -226,8 +231,16 @@ def main():
     version = VERSION.read_text(encoding="utf-8").strip()
     if not re.match(r"^\d+\.\d+\.\d+$", version):
         fail(f"VERSION holds {version!r}, which is not a three-part version")
-    html = replace_once(html, VERSION_MARKER, "v" + html_module.escape(version, quote=False))
-    html = replace_once(html, MANUAL_MARKER, render_manual(MANUAL.read_text(encoding="utf-8")))
+    shown = "v" + html_module.escape(version, quote=False)
+    html = replace_each(html, VERSION_MARKER, shown, 1)
+
+    # The manual writes the version as a token, so the page cannot show one number
+    # while VERSION holds another.
+    manual = MANUAL.read_text(encoding="utf-8")
+    if re.search(r"[Vv]ersion:\s*v\d", manual):
+        fail(f"docs/manual.md writes a version out in full; write {MANUAL_VERSION_TOKEN!r} instead")
+    manual = manual.replace(MANUAL_VERSION_TOKEN, shown)
+    html = replace_once(html, MANUAL_MARKER, render_manual(manual))
     html = replace_once(html, CSP_MARKER, f'<meta http-equiv="Content-Security-Policy" content="{policy}">')
     for _, text, marker in styles:
         html = replace_once(html, marker, f"<style>{text}</style>")

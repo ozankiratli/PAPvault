@@ -1,0 +1,207 @@
+name: Create a release
+
+# Tag a release to create it: run dev/scripts/bump-version.sh, write the CHANGELOG
+# entry, commit, then `git tag v0.1.0 && git push --tags`.
+#
+# Pushing to a branch does nothing. This workflow builds the page, checks it, and
+# attaches three things to a GitHub release:
+#
+#   index.html    the whole program in one file, which runs offline
+#   SHA256SUMS    so a download can be checked
+#   PAPvault-<version>.tar.gz
+#                 the source needed to build and run it, and nothing else. What goes
+#                 in is decided by export-ignore in .gitattributes.
+#
+# Built with `git archive` rather than `tar`, so what is in the tarball comes from the
+# git index rather than from whatever happens to be in the runner's working directory.
+#
+# The release is created as a DRAFT. Publishing it is a person's act, and it is what
+# starts pages.yml -- a release created by this workflow's own token does not raise an
+# event that starts another workflow. Set `draft: false` below to publish straight
+# away, and then deploy the site by running pages.yml by hand.
+#
+# workflow_dispatch runs everything as a rehearsal and creates no release, so a run
+# before the tag exists proves the release would work.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# Only to attach files to a release. Nothing here can write to a branch.
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # git archive builds from a ref, and the changelog gate reasons over tags.
+          # A shallow clone has neither.
+          fetch-depth: 0
+
+      - name: Work out the version and check everything agrees on it
+        id: version
+        run: |
+          set -euo pipefail
+
+          declared="$(tr -d '[:space:]' < VERSION)"
+          [ -n "$declared" ] || { echo "VERSION is empty" >&2; exit 1; }
+          case "$declared" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "VERSION holds '$declared', which is not a three-part version" >&2; exit 1 ;;
+          esac
+
+          # On a tag the tag decides. On workflow_dispatch there is no tag, and the run
+          # builds and checks without creating anything.
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            tagged="${GITHUB_REF_NAME#v}"
+            if [ "$tagged" != "$declared" ]; then
+              echo "tag $GITHUB_REF_NAME expects VERSION to hold '$tagged', but it holds '$declared'" >&2
+              exit 1
+            fi
+          fi
+
+          echo "version=$declared" >> "$GITHUB_OUTPUT"
+          echo "name=PAPvault-$declared" >> "$GITHUB_OUTPUT"
+          echo "Building PAPvault-$declared"
+
+      # Refuses to release a version the changelog does not describe. The same extractor
+      # that writes the release body, so the gate cannot pass over a section the body
+      # step would then fail to read.
+      - name: The changelog describes this version
+        run: dev/scripts/changelog-section.sh "${{ steps.version.outputs.version }}" > /dev/null
+
+      - name: Nothing read from a file may become markup or code
+        run: |
+          set -euo pipefail
+          if grep -rn "innerHTML\|outerHTML\|insertAdjacentHTML\|document\.write\|eval(\|new Function" src lib; then
+            echo "One of the sinks CLAUDE.md forbids is in the source." >&2
+            exit 1
+          fi
+          echo "  ok  none of them appears in src or lib"
+
+      - name: What ships is ASCII
+        run: |
+          set -euo pipefail
+          if LC_ALL=C grep -rnP '[^\x00-\x7F]' src build.py; then
+            echo "A byte outside ASCII is in the code that ships. House style allows four" >&2
+            echo "exceptions; if this is one, narrow this check and say why here." >&2
+            exit 1
+          fi
+          echo "  ok  src and build.py are ASCII throughout"
+
+      - name: Shell scripts parse
+        run: |
+          set -euo pipefail
+          for s in dev/scripts/*.sh; do
+            bash -n "$s" && echo "  ok  $s"
+          done
+
+      - name: Build it twice and compare
+        id: build
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          first="$(python3 build.py | tee /dev/stderr | cut -d' ' -f1)"
+          second="$(python3 build.py | cut -d' ' -f1)"
+          if [ "$first" != "$second" ]; then
+            echo "Two builds of one commit gave different bytes, so nobody can rebuild this." >&2
+            exit 1
+          fi
+          served="$(sha256sum dist/index.html | cut -d' ' -f1)"
+          if [ "$first" != "$served" ]; then
+            echo "The build reported a checksum that is not the file's own." >&2
+            exit 1
+          fi
+          cp dist/index.html out/index.html
+          echo "checksum=$first" >> "$GITHUB_OUTPUT"
+          echo "bytes=$(wc -c < dist/index.html)" >> "$GITHUB_OUTPUT"
+
+      - name: The page carries the version it is being released as
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          grep -q ">v${VERSION}<" dist/index.html || {
+            echo "the built page does not show v${VERSION}" >&2; exit 1; }
+          echo "  ok  the page shows v${VERSION}"
+
+      - name: Build the source tarball, and prove it builds the same page
+        env:
+          NAME: ${{ steps.version.outputs.name }}
+          WANT: ${{ steps.build.outputs.checksum }}
+        run: |
+          set -euo pipefail
+          git archive --prefix="${NAME}/" --format=tar.gz -o "out/${NAME}.tar.gz" HEAD
+          tar -tzf "out/${NAME}.tar.gz" | sed "s|^${NAME}/||" | grep -v '/$' | sort
+          echo
+
+          # A tarball that does not build is worse than none, so it is built here rather
+          # than taken on trust. It must give the same bytes as the page above.
+          workshop="$(mktemp -d)"
+          tar -xzf "out/${NAME}.tar.gz" -C "$workshop"
+          ( cd "$workshop/${NAME}" && python3 build.py )
+          got="$(sha256sum "$workshop/${NAME}/dist/index.html" | cut -d' ' -f1)"
+          if [ "$got" != "$WANT" ]; then
+            echo "the tarball builds a different page:" >&2
+            echo "  repository: $WANT" >&2
+            echo "  tarball:    $got" >&2
+            exit 1
+          fi
+          echo "  ok  the tarball builds the same page, byte for byte"
+          rm -rf "$workshop"
+
+      - name: Checksums for everything being attached
+        run: |
+          set -euo pipefail
+          ( cd out && sha256sum ./* > SHA256SUMS )
+          cat out/SHA256SUMS
+          ls -lh out/
+
+      - name: Build the release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          NAME: ${{ steps.version.outputs.name }}
+        run: |
+          set -euo pipefail
+          # Runs on every trigger and not only on a tag, so a rehearsal proves the notes
+          # extract before the tag exists.
+          dev/scripts/changelog-section.sh "$VERSION" > out/RELEASE_NOTES.md
+          printf '\n' >> out/RELEASE_NOTES.md
+          sed -e "1,/^-->$/d" -e "s|@VERSION@|${VERSION}|g" -e "s|@NAME@|${NAME}|g" \
+              dev/release-notes-tail.md >> out/RELEASE_NOTES.md
+          [ -s out/RELEASE_NOTES.md ] || { echo "the release notes came out empty" >&2; exit 1; }
+          echo "::group::release body"
+          cat out/RELEASE_NOTES.md
+          echo "::endgroup::"
+
+      - name: Say what was built
+        run: |
+          {
+            echo "## PAPvault v${{ steps.version.outputs.version }}"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| SHA-256 | \`${{ steps.build.outputs.checksum }}\` |"
+            echo "| Bytes | ${{ steps.build.outputs.bytes }} |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Release | ${{ github.ref_type == 'tag' && 'created as a draft' || 'none, this was a rehearsal' }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Create the release, as a draft
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v3
+        with:
+          draft: true
+          files: |
+            out/index.html
+            out/SHA256SUMS
+            out/${{ steps.version.outputs.name }}.tar.gz
+          body_path: out/RELEASE_NOTES.md

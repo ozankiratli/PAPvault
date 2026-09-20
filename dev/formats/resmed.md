@@ -1,6 +1,6 @@
 # ResMed: how the night data is stored
 
-**Kept current; its history is in git.** This file covers the ResMed S9, the AirSense and AirCurve 10, and the AirSense and AirCurve 11. It says how their night data is stored, as far as the cleared reads in `dev/READING-LOG.md` establish it.
+**Kept current; its history is in git.** It was `formats/resmed.md` until 2026-09-20, which is the path the older entries in `dev/READING-LOG.md` cite, since a log entry is never rewritten. This file covers the ResMed S9, the AirSense and AirCurve 10, and the AirSense and AirCurve 11. It says how their night data is stored, as far as the cleared reads in `dev/READING-LOG.md` establish it.
 - Every fact cites the entry it came from, and where in that source it sits.
 - What no cleared source establishes is either listed under *Open* or marked as the generator's choice.
 

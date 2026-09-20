@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build synthetic ResMed cards, and the answer each one must produce.
 
-Written from formats/resmed.md and dev/synthetic/resmed-cases.md, and from
+Written from dev/formats/resmed.md and dev/synthetic/resmed-cases.md, and from
 nothing else. Every fact about the card comes from the format file, which
 cites the read it came from in dev/READING-LOG.md.
 
@@ -42,7 +42,7 @@ RECORDING_FIELD = "Startdate X X X SRN={0}".format(MARKER)
 RECORD_SECONDS = 60
 
 # label, unit, physical range, and how many samples fall in one record.
-# The labels are the form formats/resmed.md records for the 10 and 11 series;
+# The labels are the form dev/formats/resmed.md records for the 10 and 11 series;
 # the units and the ranges are the generator's own choices.
 BRP_SIGNALS = [
     ("Flow.40ms", "L/min", -120.0, 120.0, 1500),

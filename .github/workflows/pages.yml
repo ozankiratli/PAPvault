@@ -1,0 +1,98 @@
+name: Publish the website
+
+# The website changes when a release is published, and at no other time. A push to any
+# branch, main included, changes nothing anyone can see.
+#
+# release.yml creates the release as a draft when a tag is pushed. Publishing it is
+# what starts this. That order is deliberate twice over: it gives the release notes a
+# moment to be read before anyone sees them, and a release created by a workflow's own
+# token does not raise an event that starts another workflow, so a person publishing it
+# is what makes this fire at all.
+#
+# The page is built here rather than carried over from release.yml. The build uses
+# nothing but the Python standard library and gives the same bytes every time, so
+# building it twice is cheaper than passing an artifact between workflows -- and it
+# means the site is built from the tag, not from something a previous run left behind.
+#
+# One-time repository setting this depends on:
+#   Settings -> Pages -> Build and deployment -> Source: "GitHub Actions"
+#
+# It cannot be "Deploy from a branch": dist/ is build output and is not in the
+# repository, so no branch holds a finished page to serve.
+#
+# workflow_dispatch republishes the newest release, for when the Pages setting was
+# wrong or a deployment failed for a reason outside the repository.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time, and never cancel one halfway.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Work out which release is being published
+        id: which
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "release" ]; then
+            tag='${{ github.event.release.tag_name }}'
+          else
+            tag="$(gh release view --json tagName --jq .tagName --repo '${{ github.repository }}')"
+            [ -n "$tag" ] || { echo "this repository has no release to publish" >&2; exit 1; }
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Publishing the site from $tag"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.which.outputs.tag }}
+
+      - name: The tag being published and VERSION must say the same thing
+        run: |
+          set -euo pipefail
+          declared="$(tr -d '[:space:]' < VERSION)"
+          tagged="${TAG#v}"
+          if [ "$tagged" != "$declared" ]; then
+            echo "the site would carry v$declared while the release says $TAG" >&2
+            exit 1
+          fi
+          echo "  ok  both say $declared"
+        env:
+          TAG: ${{ steps.which.outputs.tag }}
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          python3 build.py
+          ls -l dist/
+
+      # Fails early and clearly if Pages is not enabled for the repository.
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v5
+        id: deployment

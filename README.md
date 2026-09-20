@@ -35,7 +35,7 @@ PAPvault is written with an AI agent under written rules, and the record of that
 - **`CLAUDE.md`** -- the rules the agent works under, including that no real device data ever reaches it.
 - **`dev/READING-LOG.md`** -- every outside source the project has read, written down before it was opened, cleared by the maintainer, with what was taken and what was not.
 - **`SOURCES.md`** -- every source of knowledge, and what came from it.
-- **`formats/`** -- how each machine stores its data, each fact citing the read it came from.
+- **`dev/formats/`** -- how each machine stores its data, each fact citing the read it came from.
 - **`.claude/development-notes/`** -- how the project got here, including `other-projects.md`, which records the time the agent read another project's reader and was stopped.
 - **`dev/CHECKLIST.md`** and **`dev/VERIFICATION.md`** -- what is checked before a release, and what the maintainer found when checking. There is no automated test suite: every change is tested by hand.
 

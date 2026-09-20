@@ -1,8 +1,18 @@
 # About
 
+## What is PAPvault
+
+PAPvault is a browser based, free and open source, privacy friendly sleep data displayer. That allows PAP users to display their data without the need for uploading or even copying the data somewhere other than they control.
+
+- Developed by: [Ozan L. Z. Kiratli, PhD](https://ozankiratli.github.io) | *Bioinformatician*
+- Version: {{version}}
+- License: GPL 3
+- [Source code](https://github.com/ozankiratli/PAPvault)
+
+
 ## Who PAPvault is for
 
-PAPvault is for anyone who wants to look at their own therapy data without handing it to anyone, and without installing anything. Put the card in, open the folder, see your night. That is the whole idea.
+PAPvault is for anyone who wants to look at their own therapy data without handing it to anyone, and without installing anything. Put the card in, open the folder, see your sleep data. That is the whole idea. 
 
 It is deliberately not comprehensive. It shows what your machine recorded, for the nights you pick, and it stops there. It keeps nothing between visits, it has no account, and it makes no judgment about what the numbers mean.
 

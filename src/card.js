@@ -36,7 +36,7 @@ var PAPvaultCard = (function () {
 
   // What each plot needs, and the labels a file may give it. The dotted forms are the
   // ones synthetic cards are written with and checked against. The short and translated
-  // forms come from OSCAR's table of labels, cited in formats/resmed.md, and no card
+  // forms come from OSCAR's table of labels, cited in dev/formats/resmed.md, and no card
   // here has carried one. "Mask Pres" names different signals in BRP and in PLD, so a
   // label is only ever looked for inside its own kind of file.
   const SIGNALS = [

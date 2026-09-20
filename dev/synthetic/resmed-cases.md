@@ -1,6 +1,6 @@
 # ResMed synthetic cases
 
-**Kept current; its history is in git.** This file and `formats/resmed.md` are the only inputs to the ResMed generator, `dev/synthetic/resmed.py`. Each case below says what it exercises and what a correct reader must show. The generator writes each case to `dev/synthetic/out/resmed/<case>/`, which git ignores, together with an `answer.json`.
+**Kept current; its history is in git.** This file and `dev/formats/resmed.md` are the only inputs to the ResMed generator, `dev/synthetic/resmed.py`. Each case below says what it exercises and what a correct reader must show. The generator writes each case to `dev/synthetic/out/resmed/<case>/`, which git ignores, together with an `answer.json`.
 
 **The data need not look realistic.** Z, 2026-09-19: *"The generated data does not have to be realistic. I'll test with real data. On my end."* A signal is therefore whatever shape makes its answer easy to check: a ramp, a square wave, a constant. Realism is Z's own testing, on a real card.
 
@@ -8,7 +8,7 @@
 
 ## What every case carries
 
-- **The card layout** of `formats/resmed.md`: a `DATALOG` folder, day folders named `yyyyMMdd`, and files named `yyyyMMdd_HHmmss_KIND.edf`.
+- **The card layout** of `dev/formats/resmed.md`: a `DATALOG` folder, day folders named `yyyyMMdd`, and files named `yyyyMMdd_HHmmss_KIND.edf`.
 - **Filler for the files PAPvault must never open:** `STR.edf`, `Journal.dat`, `Identification.tgt`, a `SETTINGS` folder and a `.crc` beside each EDF file. Each holds meaningless bytes. Nothing needs their real format, because nothing reads them.
 - **A marker in every identifying field.** The patient and recording fields of every header hold a distinctive string, recorded in `answer.json`. It must never appear in the page, in what the page stores, or in anything the page exports.
 
@@ -24,7 +24,7 @@
 | `empty-day` | a day folder with no files, and a gap of several days between two nights |
 | `no-oximeter` | no `SAD` files, so the reader must cope with a kind that is missing |
 | `five-days` | five CPAP days in a row, for a range selection and its summaries. The nights differ in start and length; one has no oximetry; one day holds two sessions, the second of which starts after midnight and is filed under the day before |
-| `other-labels` | the short and translated label forms of `formats/resmed.md`, including one with bytes outside ASCII. The reader reports which signals it did not find rather than guessing |
+| `other-labels` | the short and translated label forms of `dev/formats/resmed.md`, including one with bytes outside ASCII. The reader reports which signals it did not find rather than guessing |
 | `lies` | files that do not add up; each is its own card, listed below |
 
 ## What `lies` contains

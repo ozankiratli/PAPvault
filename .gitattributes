@@ -1,0 +1,13 @@
+# What `git archive` leaves out of the release tarball. The tarball is what someone
+# needs to build PAPvault and run it, and nothing else: the build script, the source
+# it inlines, the vendored library, the manual it renders, and the licence.
+#
+# Everything named here stays in the repository, where anyone who clones can read it.
+# It is left out of the tarball because it is how PAPvault was built rather than what
+# it is built from.
+.claude/           export-ignore
+.github/           export-ignore
+dev/               export-ignore
+.gitattributes     export-ignore
+.gitignore         export-ignore
+CLAUDE.md          export-ignore

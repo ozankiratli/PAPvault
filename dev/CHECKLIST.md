@@ -130,7 +130,7 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 
 **How:** open Select Folder and choose a card. Compare what the page reports -- the count of night files, the sessions, the days, the first and last recording -- with what is on the card. On a synthetic case from `dev/synthetic/out/resmed/`, compare with its `answer.json`. Check the calendar's dots against the days in it. Then, with the developer tools open, confirm that a session beginning after midnight is dated to the day before, and that the page reports every file it refused.
 
-**Failure:** a session missing, counted twice, or dated to the wrong CPAP day; a count that disagrees with the card; a dot on a day with no recording, or none on a day with one; a file named in `formats/resmed.md` as never opened appearing anywhere in what the page read; or a malformed file that is read past rather than named and skipped.
+**Failure:** a session missing, counted twice, or dated to the wrong CPAP day; a count that disagrees with the card; a dot on a day with no recording, or none on a day with one; a file named in `dev/formats/resmed.md` as never opened appearing anywhere in what the page read; or a malformed file that is read past rather than named and skipped.
 
 ## `day-plots` -- one night's plots line up and move together
 
