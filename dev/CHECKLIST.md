@@ -8,9 +8,9 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 
 **Protects:** the design assumption that the page arrives with no security header of its own, so the `<meta>` policy is the one in force.
 
-**How:** `curl -sSI <PAPvault URL>`, and compare with the headers recorded at the previous run.
+**How:** `curl -sSI <PAPvault URL>`, and compare with the headers recorded at the previous run. Look for four kinds of header in particular: a `Content-Security-Policy` or `X-Frame-Options` of the host's own, which would combine with the page's and could confuse what is in force; a `NEL`, `Report-To` or `Reporting-Endpoints`, which would make the **browser** send reports somewhere whatever the page does; a `Set-Cookie`; and the absence of `Strict-Transport-Security`. Then check `curl -sSI http://<PAPvault URL>` redirects to https, and that nothing of the repository is reachable beside the page: `/src/app.js`, `/build.py`, `/VERSION` and `/CLAUDE.md` must all be 404.
 
-**Failure:** `content-type` is anything but `text/html; charset=utf-8`. A header that was not there at the previous run is recorded and raised, whether or not it looks harmful.
+**Failure:** `content-type` is anything but `text/html; charset=utf-8`. A header that was not there at the previous run is recorded and raised, whether or not it looks harmful. Any reporting header at all is a finding: it is collection, even though it is not the page doing it. Plain http not redirecting, or any file of the repository other than the built page answering 200.
 
 ## `policy-blocks` -- the policy is in force
 
@@ -99,6 +99,14 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 **How:** read a card, pick a night in the middle, and click **Next day** until it goes dead, then **Previous day** until it goes dead. Watch that the calendar follows into the next month when the run crosses one, and that a selected range collapses to a single day on the first step.
 
 **Failure:** a step onto a day whose summary says the folder holds no recording here; a button still live at the first or last night on the card; the calendar staying on the old month while the selected day is in another; or a range that survives a step.
+
+## `shared-origin` -- nothing card-derived is stored, because the origin is not ours alone
+
+**Protects:** that a card's contents never reach browser storage, which matters more than it looks: `localStorage` is scoped to an origin and not to a path, so every other site published under the same GitHub account shares it with PAPvault.
+
+**How:** read a card, then in the browser console run `Object.entries(localStorage)`. There must be exactly three keys -- the theme, the clock format and which plots are checked -- and no value among them may be a date, a figure, an event name, a file name or anything else that came off the card. Then check the same for `sessionStorage`, `document.cookie` and `indexedDB.databases()`.
+
+**Failure:** a fourth key; any value that came from a card rather than from a control on the page; anything at all in session storage, cookies or IndexedDB.
 
 ## `landing` -- the page before anything is read points at the manual
 

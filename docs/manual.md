@@ -25,7 +25,7 @@ If you want more, install [OSCAR](https://www.sleepfiles.com/OSCAR/). It reads m
 - **Only the night's recording is read.** Files that hold something else, such as the machine's summaries, its settings or its identification file, are never opened.
 - **Nothing identifying is touched.** The files carry fields naming the person and the machine. PAPvault steps over them, and never shows or keeps them.
 - **Your browser's own dialog may use the word "upload".** That is the browser's wording for letting a page open a folder, and it is why PAPvault never uses the word itself. Nothing is sent anywhere.
-- **The host still sees you.** GitHub Pages logs the address of every visitor, and no page can prevent that. Download the single file and open it offline if you would rather not be seen at all.
+- **The host still sees you.** This page is served by GitHub Pages, through a content delivery network in front of it, and both see the address every visit comes from. GitHub's documentation says a visitor's address is logged and stored for security purposes. No page can prevent that. Download the single file and open it offline if you would rather not be seen at all.
 
 ## Machines it reads
 
