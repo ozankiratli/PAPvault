@@ -24,6 +24,8 @@ Two settings, both in the repository's own Settings, and both needed before a ta
 
 This is what makes "the site changes only on a release" a rule GitHub enforces rather than a habit. `pages.yml` only listens for tags, but if that were ever widened by accident, the environment would still refuse the deployment.
 
+**The `main` rule is a way in, so know what it does.** Running `pages.yml` by hand against `main` deploys whatever `main` holds at that moment, released or not. It is there to recover from a deployment that failed for a reason outside the repository, and it is the one path that can put an unreleased state on the website. Run it against the tag instead wherever that will do.
+
 On 2026-09-20 this repository refused a deployment from the `v0.0.1` tag before those rules existed: *"Tag "v0.0.1" is not allowed to deploy to github-pages due to environment protection rules."* What the environment allowed before that was not recorded, so treat the table above as the thing to set, not as a description of what GitHub starts with.
 
 The build half of a run succeeds whether or not this is right, so the failure shows up as a workflow that ran, went green on `build`, and stopped at `deploy`.
