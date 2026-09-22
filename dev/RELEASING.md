@@ -91,14 +91,24 @@ None of this is a substitute for step 1.
 
 ## The actions they use
 
-Five, and their versions are what PoolSeqFlow is using, taken from the read rather than from memory:
+Five, pinned to a major version tag:
 
 | Action | Version | Used by |
 |---|---|---|
-| `actions/checkout` | v7 | both |
+| `actions/checkout` | v7 | all three |
 | `actions/configure-pages` | v6 | `pages.yml` |
 | `actions/upload-pages-artifact` | v5 | `pages.yml` |
 | `actions/deploy-pages` | v5 | `pages.yml` |
 | `softprops/action-gh-release` | v3 | `release.yml` |
 
-They are pinned to a major version, which is a gap: a major-version tag is a moving pointer, and whoever controls it can change what runs here without the repository changing. Pinning each to a commit SHA fixes that. Four of the five are GitHub's own; `softprops/action-gh-release` is not.
+Four are GitHub's own; `softprops/action-gh-release` is not, and it runs in `release.yml` alone, so the path that publishes the website carries no third-party code.
+
+**A major version tag is a pointer its owner can move**, which is how an action ships a fix without anyone editing a workflow. Pinning each to a commit instead was proposed on 2026-09-21 and the commits were resolved, and **Z decided against it**: PAPvault's own releases are immutable, so every published `index.html` and its `SHA256SUMS` are fixed and cannot be replaced. That leaves a permanent reference nobody can alter, and the `rebuild` entry in `dev/CHECKLIST.md` is the check that uses it -- rebuild at the tag, compare with what is served. Tampering in the runner does not have to be prevented if it is detectable against something that cannot change.
+
+The residual, stated so it is not discovered later: the website is deployed by `pages.yml` separately from the release, so a page swapped there would still differ from the release asset rather than matching it -- which is what makes the comparison work, and also means the comparison has to actually be run. It is a per-release human check, not a continuous one.
+
+If that is ever revisited, the commits are resolved from the public API over plain https, since there is no `gh` on this machine:
+
+    https://api.github.com/repos/<owner>/<repo>/git/ref/tags/<tag>
+
+An annotated tag needs one more hop through `/git/tags/<sha>` to reach the commit.

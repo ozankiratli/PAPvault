@@ -46,7 +46,7 @@ window.addEventListener("load", function () {
   }
   var tries = 0;
   (function step() {
-    if (++tries > 1200) { document.title = "GAVE UP " + document.getElementById("summary-body").textContent.slice(0, 80); return; }
+    if (++tries > 6000) { document.title = "GAVE UP " + document.getElementById("summary-body").textContent.slice(0, 80); return; }
     if (!loaded()) { setTimeout(step, 25); return; }
     if (CLICKS.length) {
       CLICKS.forEach(function (iso) {

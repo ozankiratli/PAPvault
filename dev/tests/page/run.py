@@ -15,6 +15,7 @@ Nothing here reaches the network, and every browser it starts has a temporary pr
 of its own and is given the page as a file:// URL.
 """
 import argparse
+import html
 import json
 import pathlib
 import re
@@ -25,7 +26,7 @@ import tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 BROWSERS = ["chromium", "chromium-browser", "google-chrome", "google-chrome-stable"]
-TIMEOUT = 300
+TIMEOUT = 600
 
 
 def find_browser(named):
@@ -45,7 +46,7 @@ def run_page(browser, profile, page):
     profile.mkdir(parents=True)
     finished = subprocess.run(
         [browser, "--headless=new", "--user-data-dir=" + str(profile), "--v=0",
-         "--virtual-time-budget=180000", "--window-size=1500,1200",
+         "--virtual-time-budget=400000", "--window-size=1500,1200",
          "--dump-dom", "file://" + str(page)],
         capture_output=True, text=True, timeout=TIMEOUT,
         env={"PATH": "/usr/bin:/bin:/usr/local/bin", "TZ": "America/New_York",
@@ -54,10 +55,18 @@ def run_page(browser, profile, page):
     found = re.search(r"<title>([^<]*)</title>", finished.stdout)
     if not found:
         raise AssertionError("the page never set a title; it may not have finished")
-    return found.group(1)
+    # A title read back out of the serialised DOM is HTML-escaped, so a report
+    # carrying > or & arrives as &gt; or &amp;. Undo that before parsing.
+    return html.unescape(found.group(1))
 
 
 def payload(title, word):
+    if title.startswith("GAVE UP"):
+        # The in-page poll counter runs on virtual time, which advances whether or not
+        # the real work behind it has finished, so this means slow rather than broken.
+        raise AssertionError(
+            "the probe stopped waiting before the page finished: %s\n"
+            "    raise the poll limit in the probe, or run with less else going on" % title[:90])
     if not title.startswith(word):
         raise AssertionError("expected a %s report, got: %s" % (word, title[:120]))
     return json.loads(title[title.index("{"):title.rindex("}") + 1])
@@ -189,6 +198,20 @@ def check_landing(report, checks):
                 report["overMiddle"] is True)
 
 
+def check_marker(report, checks):
+    # Nothing that names a person or a machine may reach the page. The card's EDF
+    # headers and its Identification.tgt all carry the marker; none of them is a file
+    # or a field PAPvault reads.
+    checks.that("the identifying marker is nowhere in the rendered page",
+                report["inPage"] is False, report.get("around"))
+    checks.that("the identifying marker is nowhere in local storage",
+                report["inStorage"] is False, report.get("storedKeys"))
+    # Whatever is stored is a preference, never something off a card.
+    keys = [one.split("=")[0] for one in report["storedKeys"].split(";") if one]
+    checks.that("local storage holds only PAPvault's own preferences",
+                all(k.startswith("papvault-") for k in keys), keys)
+
+
 def check_step(report, checks):
     back = [day for day, empty in report["back"]]
     forward = [day for day, empty in report["forward"]]
@@ -217,6 +240,7 @@ PROBES = [
     ("make-manual-probe.py", "manual", "MANUAL", check_manual),
     ("make-landing-probe.py", "landing", "LANDING", check_landing),
     ("make-step-probe.py", "step", "STEP", check_step),
+    ("make-marker-probe.py", "marker", "MARKER", check_marker),
 ]
 
 

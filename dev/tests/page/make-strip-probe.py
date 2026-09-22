@@ -32,7 +32,7 @@ window.addEventListener("load", function () {
 
   var tries = 0;
   (function step() {
-    if (++tries > 1200) { document.title = "GAVE UP"; return; }
+    if (++tries > 6000) { document.title = "GAVE UP"; return; }
     if (document.querySelectorAll("#plots-body .uplot").length === 0) { setTimeout(step, 25); return; }
     setTimeout(function () {
       var strip = document.querySelector("#plots-body .uplot");

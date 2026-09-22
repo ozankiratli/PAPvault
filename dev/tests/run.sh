@@ -123,9 +123,11 @@ step "the parser against the synthetic answers" node dev/tests/edf-vs-answer.js 
 step "the card reader against the synthetic answers" node dev/tests/card-vs-answer.js "$ROOT"
 step "the CPAP day at every edge it has" node dev/tests/day-boundary.js "$ROOT"
 step "cards the committed cases cannot be" node dev/tests/cards/derived.js "$ROOT"
+step "the policy in the built page is the one it must be" python3 dev/tests/policy.py "$ROOT"
 
 if [ "$PAGE" = "1" ]; then
     step "the built page in a headless browser" python3 dev/tests/page/run.py "$ROOT"
+    step "nothing leaves the page, and nothing could" python3 dev/tests/outbound.py "$ROOT"
 else
     printf '\n== the built page in a headless browser\n   skipped\n'
 fi

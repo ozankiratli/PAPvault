@@ -65,3 +65,13 @@ That message is the whole of what was observed. The `github-pages` environment o
 What follows from the message alone: a workflow run started by a release carries the tag as its ref, so if an environment will not accept a tag, nothing written in the YAML can make that deployment go through. PAPvault's answer was to stop deploying from a release at all and deploy from `main` instead, which is what PoolSeqFlow does and what Z asked for.
 
 Two things made this hard to see. The run is not obviously a failure at a glance, because the job that does the work succeeded and only the last job stopped. And the symptom reported first was "the second workflow never triggered", which sends you looking at the trigger, the default branch and the token -- the three places a workflow genuinely fails to start. **When a chained workflow appears not to have run, confirm whether a run exists before reasoning about why it does not.**
+
+## A poll counter inside a page under `--virtual-time-budget` counts virtual time, not progress
+
+*Found 2026-09-21.* Every headless probe waited for the page with `setTimeout(step, 25)` and gave up after 1200 tries, which reads as thirty seconds of patience. It is not. Under `--virtual-time-budget` the browser advances its clock to the next pending timer as fast as it can, so those 1200 ticks are consumed almost instantly in wall-clock terms, **whether or not the real work behind them has finished**. Reading fifteen megabytes of base64 into File objects, parsing EDF and drawing canvases all take real time that virtual time does not wait for.
+
+The symptom was a suite that failed about one run in three, on a different probe each time -- the two heaviest first -- and passed on a re-run. That is worse than a failure, because it teaches everyone to run it again rather than read it.
+
+Two things to keep straight. The in-page counter is **not** the guard against a hang: the runner's `subprocess.run(..., timeout=...)` is, and that one is measured in wall clock. And a give-up from the counter means *slow*, not *broken*, so it must not be reported as a malformed result -- the message now says so.
+
+The limits are 6000 polls against a 400-second virtual budget and a 600-second wall-clock timeout, which is roughly five times the headroom the marginal case needed. **A probe that polls needs its patience measured against the clock the work runs on**, and under virtual time those are two different clocks.

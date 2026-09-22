@@ -98,7 +98,7 @@ window.addEventListener("load", function () {
 
   var tries = 0;
   (function ready() {
-    if (++tries > 1200) { document.title = "GAVE UP"; return; }
+    if (++tries > 6000) { document.title = "GAVE UP"; return; }
     if (document.getElementById("folder-status").textContent.indexOf("Reading") === 0) { setTimeout(ready, 25); return; }
     if (!settled()) { setTimeout(ready, 25); return; }
     report.opensOn = selected();

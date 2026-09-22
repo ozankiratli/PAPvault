@@ -36,3 +36,7 @@ The first attempt put the whole suite in CI, on every pull request. Z: *"OK don'
 So `.github/workflows/build.yml` asks a runner one question -- does the source still build, and build the same twice -- and nothing else. The suite runs here, before a change is handed over, and what it found is said with the change. The same narrowing took the grep and ASCII steps back out of `release.yml`, which now checks only things that are about the release itself: that the tag and `VERSION` agree, that the changelog describes the version, that the page carries the version it claims, and that the tarball rebuilds the page byte for byte.
 
 The agent's instinct in all three attempts was to run more in more places. The instruction each time was the opposite, and the reason is not cost: a check that runs where nobody reads it is a check nobody acts on, and this project's testing has a person at the centre of it on purpose.
+
+## Correction, 2026-09-21
+
+The section above calls the day cut a hole the `morning-nap` case would close. Z closed that on 2026-09-21: *"I think it is closed. The system covers it now... Case closed."* The rule was settled long before, and `day-boundary.js` already exercises it at every edge, so there was no coverage gap -- only the observation that the largest check in the suite cannot see the cut move and the smallest one can. The agent had restated it as an open item several times, which is how a settled decision gets re-litigated by accident.

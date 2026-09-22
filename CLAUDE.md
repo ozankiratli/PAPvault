@@ -61,7 +61,8 @@ Z, 2026-09-19:
   - On a ResMed card that rules out `STR.edf`, `Identification.*`, `SETTINGS/`, `Journal.dat` and the `.crc` files.
   - On other machines it rules out their settings and configuration files.
   - Summaries are computed from night data alone.
-- **Nothing identifying is touched.** A field that names or numbers the person or the machine is skipped, and never decoded, shown or kept. That covers EDF's patient and recording fields, and any serial number. A folder named by a serial number is passed through, and its name is never shown or kept.
+- **Nothing identifying is touched.** A field that names or numbers the person or the machine is skipped, and never decoded, shown or kept. That covers EDF's patient and recording fields, wherever they appear inside a file, and any serial number written in one.
+- **The folder's own name is the one exception, and it is shown back to the reader.** The folder dialog reports what was opened by the name the reader picked -- *"SN-23231234567 opened: 15 files"* -- and on a ResMed card that name can be the machine's serial number. It is never stored, never put in the page's storage, and never sent anywhere; it is on the reader's own screen and gone on reload. Z settled this on 2026-09-21, choosing to say what the page does rather than change what it does: the name is what tells the reader which folder they actually opened, which matters when a card and a copy of it are both on the machine. **The consequence to keep in mind is screenshots** -- a reader sending that dialog in a bug report sends the serial with it, and the manual says so. The audit that found the old wording to be untrue is `.claude/development-notes/auditing-the-promise.md`.
 - **Here PAPvault diverges from OSCAR by design.** That another tool reads a file is no reason for PAPvault to read it.
 
 ## How a card is read, and what is shown

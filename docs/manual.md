@@ -23,7 +23,8 @@ If you want more, install [OSCAR](https://www.sleepfiles.com/OSCAR/). It reads m
 - **Nothing leaves this page.** There is nowhere to send it: the page's security policy forbids every outbound connection, and the browser enforces that rather than trusting us.
 - **Nothing is collected.** No analytics, no counts, no error reports.
 - **Only the night's recording is read.** Files that hold something else, such as the machine's summaries, its settings or its identification file, are never opened.
-- **Nothing identifying is touched.** The files carry fields naming the person and the machine. PAPvault steps over them, and never shows or keeps them.
+- **Nothing identifying is touched inside the files.** They carry fields naming the person and the machine. PAPvault steps over them, and never shows or keeps them.
+- **The one thing you will see is the name of the folder you picked.** After you open one, PAPvault says what it found -- *"SN-23231234567 opened: 15 files"* -- using the folder's own name, so you can tell which folder you actually opened. On many cards that name is the machine's serial number. It is never stored and never sent; it is on your screen and gone when you reload. **Worth knowing if you send someone a screenshot of that dialog**, because the name goes with it.
 - **Your browser's own dialog may use the word "upload".** That is the browser's wording for letting a page open a folder, and it is why PAPvault never uses the word itself. Nothing is sent anywhere.
 - **The host still sees you.** This page is served by GitHub Pages, through a content delivery network in front of it, and both see the address every visit comes from. GitHub's documentation says a visitor's address is logged and stored for security purposes. No page can prevent that. Download the single file and open it offline if you would rather not be seen at all.
 

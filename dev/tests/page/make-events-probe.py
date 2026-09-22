@@ -51,7 +51,7 @@ window.addEventListener("load", function () {
 
   var tries = 0;
   (function step() {
-    if (++tries > 1200) { document.title = "GAVE UP"; return; }
+    if (++tries > 6000) { document.title = "GAVE UP"; return; }
     if (document.getElementById("folder-status").textContent.indexOf("Reading") === 0) { setTimeout(step, 25); return; }
     if (CLICKS.length) {
       CLICKS.forEach(function (iso) {
