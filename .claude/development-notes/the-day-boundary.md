@@ -50,3 +50,44 @@ The 11:00 row is the one that can fail: under the old rule it would have read `2
 ## What the reader gets from this
 
 The first framing -- "show the use that starts between noon and 6" -- was a rule about display that quietly implied a rule about membership, and the two came apart on one case out of the whole day. Writing the case down as data, rather than settling it in prose, is what showed that some recorded use would have had nowhere to appear. The same question is worth asking of any window the page draws: which recording falls outside it, and where does that recording go.
+
+## 2026-09-23: a break of up to an hour does not cross the boundary
+
+**Appended 2026-09-23, against the tree at `0957202`.** The note above is left as it was written.
+
+Z found the defect by describing a night rather than reading the code:
+
+> I found a defect in my design. If someone uses the bathroom for a few mins and come back after 6am, the system records it in the next day. Even though it should be in the same day. We should make a rule or something allowing up to an hour break in the use. But with 12pm cutoff any session that starts after 12pm regardless of the cutoff times belong to that day.
+
+The defect is real and it was in the page from the first day it drew anything. A session is one unbroken stretch of flow, and a cut of more than five seconds begins a new one, so five minutes off the mask is always two sessions. Every session was dated on its own start. Off at 05:55 and back on at 06:05 therefore split one night down the middle: the first half on the night's date, the second on the next, each with its own hours, its own event counts and its own row in a range. Nothing about the sleep was different; the clock had crossed 6 while the mask was off.
+
+**The rule, as it is now in `src/card.js`:** a session that begins within `DAY_BREAK_MINUTES` of the end of the one before it takes that session's day instead of the day the boundary would give it. The break is measured from the end of the previous session -- its flow end, or its files' span where it has no flow -- to the start of the next, which is the same measure `sessionsFrom()` already used to decide where one session ends and the next begins, and both now read it from `endOf()`.
+
+**It carries on down a chain.** The third session of a broken morning reads the day the second was *given*, not the day its own clock would give it. That is what makes the noon limit necessary rather than decorative, and it is the part a check has to aim at specifically: replacing `before.day` with `cpapDayOf(before.start)` leaves a rule that still works for one break and fails for two.
+
+**The limit Z set is `DAY_BREAK_BEFORE_HOUR`,** and it is a floor under the chain rather than a second boundary. A session beginning at noon or later is its own day's whatever came before it, so no run of short breaks can walk a morning into an afternoon and file a nap under the night before. Everything before noon is unchanged by it, because before noon the chain is what decides.
+
+Two readings of Z's words that would have produced different code, decided here and stated to Z rather than asked:
+
+- **The chain is unlimited, not one hop.** Z wrote *"up to an hour break in the use"*, and the use is what continues across it. A one-hop rule would also make the noon limit almost unreachable, which is an argument that Z was describing something that can reach noon.
+- **Noon is `>=`, not `>`.** A session beginning at 12:00:00 exactly starts its own day. The other reading differs for one second of the day.
+
+## What this changed, and what it did not
+
+**Nothing else in the page.** Membership is carried entirely by `session.dayKey`: the calendar's dots, `sessionsInSelection()`, the per-day figures and the plots all read it, so setting it differently was the whole change. `cpapDayOf()` is untouched and still answers for a moment on its own, which is what the preselected day and `cpapDayStart()` need.
+
+**No synthetic card.** Every case this repository holds starts its sessions in the evening or between midnight and 6, so none of them has a break that crosses the cut and no `answer.json` moved -- the generator wrote identical bytes before and after. That is the same gap the note above recorded for the boundary itself, and it is recorded again here: **the break rule is checked by `dev/tests/day-boundary.js` and by nothing that comes off a card.** A case is proposed in `dev/synthetic/resmed-cases.md` as `bathroom-break`, not built, because a case is agreed with Z before it is written. Building it also means the rule goes into `dev/synthetic/resmed.py`, whose `cpap_day()` is today a function of one moment and would have to become a function of the sessions in order.
+
+**The R prototype does not have this rule.** `prepare_data()` is the ground truth for reading a card, and the day rule has never come from it; Z set the days in `CLAUDE.md` and set this. A comparison against the prototype on a card with a break across 6 would disagree, and the disagreement would be the prototype's.
+
+## How the checks were shown to be able to fail
+
+`dev/tests/day-boundary.js` grew fifteen nights and a sixteenth session with no flow, driven through the exported `daysOf()`. Three deliberate breaks, each run against a copy of `src/` in a scratch directory:
+
+| The break | What failed |
+|---|---|
+| `DAY_BREAK_MINUTES` 60 -> 0 | 9 of 33, and every one of the nights the rule must leave alone still passed |
+| `DAY_BREAK_BEFORE_HOUR` 12 -> 24 | 2 of 33, both of them the noon cases and nothing else |
+| `before.day` -> `cpapDayOf(before.start)` | 9 of 33, including the three-session chain, which is the check that tells a chain from one hop |
+
+The second is the one worth keeping in mind: it fails exactly two checks, so if either of those two nights is ever dropped the noon limit becomes unprotected without any other check noticing.

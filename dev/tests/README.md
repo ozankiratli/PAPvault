@@ -19,7 +19,7 @@ Needs `python3`, `node` and a chromium. Nothing from a package manager, and noth
 | `synthetic_cards` | a generator that does not write the same card twice, which would mean its answers described nothing |
 | `edf-vs-answer.js` | the EDF parser against the generator's own answers: headers, units, intervals, sample counts, sample values, every event. **765 checks** |
 | `card-vs-answer.js` | the card reader the way the page uses it: sessions, their ends, CPAP days, kinds, signals with their sample times and the units the page must put on them, events, the day-by-day grouping, how long the leak ran above zero with each of its runs landing where the card put it, and the identifying marker never reaching the page. **976 checks** |
-| `day-boundary.js` | the 6 o'clock cut at every edge it has, in three time zones and across both daylight-saving changes. **17 checks** |
+| `day-boundary.js` | the 6 o'clock cut at every edge it has, and the break rule Z set on 2026-09-23 -- a session beginning within an hour of the end of the one before it takes that session's day, down a chain of any length, and one beginning at noon or later never does. Driven through the reader's own `daysOf()` with sessions the check makes up, so it opens no file. `run.sh` runs it three times, in a zone where both daylight-saving changes it names are real and in two where they are not. **33 checks, three times over** |
 | `cards/derived.js` | the rules the committed cases cannot exercise: a session being a stretch of flow, a file with no flow never making a night nor moving one, two files of one kind in one session keeping both their samples, the leak switching on and off at every record boundary, and the two conversions the page makes -- a leak recorded per second shown per minute, a tidal volume recorded in liters shown in milliliters. **27 checks** |
 | `policy.py` | the Content-Security-Policy in the built page: every directive says exactly what it must, no directive carries `'unsafe-inline'`, `'unsafe-eval'`, a nonce, a scheme or a wildcard, the policy arrives before the first style and script, every inlined element is hashed and every hash belongs to an element, the page loads nothing of its own but a `data:` URI, and the frame check and referrer policy are present. **34 checks** |
 | `outbound.py` | that nothing leaves the page and nothing could: a plain load watched with Chrome's own network log must request exactly one URL and resolve no hostname, and a probe that tries eighteen ways to send a loaded card's data to an outside host must be refused by the policy every time, with the log showing no request and no DNS lookup. **11 checks** |
@@ -44,6 +44,9 @@ They are built into `dev/tests/out/`, which git ignores, and rebuilt on every ru
 A check that cannot fail is not a check. These were each broken on purpose and seen to fail:
 
 - moving the day cut from 6 to 5: `day-boundary.js` reported 9 mismatches;
+- turning the break rule off, by making `DAY_BREAK_MINUTES` 0 in `src/card.js`: `day-boundary.js` reported 9 of its 33, and every night the rule must leave alone -- one unbroken session, a mask-off break in the middle of the night, a morning nap hours later, two nights running -- still passed;
+- taking the noon limit off, by making `DAY_BREAK_BEFORE_HOUR` 24: 2 mismatches, both of them the noon cases and nothing else. Worth remembering, because it means those two nights are the only thing holding that limit up;
+- making the chain read the clock instead of the day the session before it was given, `before.day` becoming `cpapDayOf(before.start)`: 9 mismatches, among them the three-session chain. That is the check that tells a chain of breaks from a single hop, and the only one of the three breaks that a one-hop rule would survive;
 - drawing the event bars bottom-up again: `page/run.py` reported 2 failures, naming the palette order and the lengths;
 - adding `'unsafe-inline'` to the policy in `build.py`: `policy.py` reported 4 failures, from four independent directions -- the directive holding something that is not a hash, the forbidden token, a hash with no element, and the counts disagreeing;
 - naming the card's folder with the marker: the marker check failed and pointed at `folder-status`;
@@ -66,6 +69,8 @@ A check that cannot fail is not a check. These were each broken on purpose and s
 - the earlier ones are recorded where they were found, in `.claude/development-notes/drawing-the-plots.md`.
 
 **One of those runs is worth keeping in mind.** With the day cut moved to 5 o'clock, `card-vs-answer.js` still passed all 822 checks. Every session in the committed cases begins at an hour where a 5 o'clock cut and a 6 o'clock cut agree, so the reader suite cannot see the boundary move at all; only `day-boundary.js` can. That is not a gap in the suite, though: `day-boundary.js` exercises the rule directly, at every edge it has. It is a fact about which check earns its keep -- the smallest one here is the only one that can see the cut move.
+
+**The same is true of the break rule, and there it is a gap.** Every session in the committed cases begins in the evening or between midnight and 6, so none of them has a break that crosses the cut, and turning the rule off changes no card and no `answer.json`. `day-boundary.js` exercises it directly, but nothing that comes off a card does. The case that would is proposed in `dev/synthetic/resmed-cases.md` as `bathroom-break` and waits for Z.
 
 ## The marker check, and what it deliberately does not assert yet
 

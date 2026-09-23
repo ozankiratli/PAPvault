@@ -113,6 +113,16 @@ synthetic_cards() {
     echo "  ok  the same cards both times"
 }
 
+# The rule reads the clock the reader's machine is set to, so it is run where the two
+# daylight-saving changes it names are real and in two zones where they are not.
+day_boundary() {
+    local zone
+    for zone in America/New_York Europe/Berlin Australia/Sydney; do
+        printf '  %s\n' "$zone"
+        TZ="$zone" node dev/tests/day-boundary.js "$ROOT" || return 1
+    done
+}
+
 step "nothing from a file becomes markup or code" no_markup
 step "what ships is ASCII" ascii_only
 step "the shell scripts parse" scripts_parse
@@ -121,7 +131,7 @@ step "the page carries its own version" shows_its_version
 step "the synthetic cards build, and build the same twice" synthetic_cards
 step "the parser against the synthetic answers" node dev/tests/edf-vs-answer.js "$ROOT"
 step "the card reader against the synthetic answers" node dev/tests/card-vs-answer.js "$ROOT"
-step "the CPAP day at every edge it has" node dev/tests/day-boundary.js "$ROOT"
+step "the CPAP day at every edge it has, in three time zones" day_boundary
 step "cards the committed cases cannot be" node dev/tests/cards/derived.js "$ROOT"
 step "the policy in the built page is the one it must be" python3 dev/tests/policy.py "$ROOT"
 

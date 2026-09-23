@@ -113,6 +113,10 @@ A day here runs from 6 in the morning to 6 the next morning, and is named by the
 
 A session is one unbroken stretch of recording. Each session belongs whole to the day it began in, so a session still running at 6 in the morning stays with the day it started, however late it ends.
 
+**A break of up to an hour does not start a new day.** If you take the mask off and put it back on within the hour, what follows stays on the same day as what came before, even when you put it back on after 6 in the morning. Getting up at ten to six and going back to bed at five past does not split one night across two dates. The break is measured from the moment the recording stopped to the moment the next one started, and it carries on: each session that follows a short break joins the one before it, so a night of interrupted sleep is one day's however many times it was interrupted.
+
+**A session that starts at noon or later always belongs to the day it starts on.** That is the one limit on the rule above, and it is what stops a morning of short breaks from carrying an afternoon nap back onto the night before.
+
 **A session is measured by the flow, and by nothing else.** Your machine does not write a night as one thing: it writes a file for each kind of thing it records, it does not stamp them all at the same second, and it writes files at other times too -- when it is unplugged and plugged back in, when it sends its data somewhere, and for reasons of its own. Counting those would turn one night into three. So PAPvault follows the flow your machine recorded, and a session is one unbroken stretch of it. Where the flow is cut for no more than **five seconds**, it is still the same session.
 
 **Files that carry no flow are not nights.** Unplugging your machine and plugging it back in makes it write a file saying a recording started, with no recording behind it. An event file on its own is not a night, however many times that happens. Such files never make a session, never set a session's start or end, and never move a night from one day to another; they simply join the night nearest to them, and the folder box says how many there were.

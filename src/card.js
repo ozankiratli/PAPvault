@@ -32,6 +32,14 @@ var PAPvaultCard = (function () {
   // other part of the page takes the boundary from here.
   const DAY_START_HOUR = 6;
 
+  // A session that begins within this of the end of the one before it takes that
+  // session's day rather than the day the boundary would give it.
+  const DAY_BREAK_MINUTES = 60;
+
+  // A session that begins at or after this hour takes the day the boundary gives it,
+  // whatever came before it.
+  const DAY_BREAK_BEFORE_HOUR = 12;
+
   // A session is a stretch of flow, and a cut in the flow longer than this begins a
   // new one. The file names say nothing about it: a machine writes a file for each
   // thing it records and does not stamp them all at one second.
@@ -81,6 +89,33 @@ var PAPvaultCard = (function () {
       return String(n).padStart(2, "0");
     };
     return day.getFullYear() + "-" + pad(day.getMonth() + 1) + "-" + pad(day.getDate());
+  }
+
+  // The moment a session stopped recording, which is where the break before the next
+  // one is measured from. A session with no flow in it is timed by its files' span.
+  function endOf(session) {
+    return session.flowEnd || session.end;
+  }
+
+  // Whether a session takes the day of the one before it rather than the day the
+  // boundary gives it.
+  function carriesOn(session, before) {
+    if (!before || session.start.getHours() >= DAY_BREAK_BEFORE_HOUR) {
+      return false;
+    }
+    return session.start - endOf(before) <= DAY_BREAK_MINUTES * 60 * 1000;
+  }
+
+  // The day of every session, set in the order they ran, each one reading the day the
+  // one before it was given.
+  function daysOf(sessions) {
+    let before = null;
+    for (const session of sessions) {
+      session.day = carriesOn(session, before) ? before.day : cpapDayOf(session.start);
+      session.dayKey = dayKey(session.day);
+      before = session;
+    }
+    return sessions;
   }
 
   // The files of a chosen folder that hold a night's recording, and nothing else.
@@ -160,7 +195,7 @@ var PAPvaultCard = (function () {
 
     for (const recording of flowing.length ? flowing : order) {
       const open = sessions[sessions.length - 1];
-      const from = open && (open.flowEnd || open.end);
+      const from = open && endOf(open);
       const to = recording.flowStart || recording.start;
       if (open && to - from <= SESSION_GAP_SECONDS * 1000) {
         takeInto(open, recording);
@@ -272,9 +307,8 @@ var PAPvaultCard = (function () {
     }
 
     const built = sessionsFrom(Array.from(recordings.values()));
+    daysOf(built.sessions);
     for (const session of built.sessions) {
-      session.day = cpapDayOf(session.start);
-      session.dayKey = dayKey(session.day);
       session.kinds.sort();
     }
     let asideFiles = 0;
@@ -546,9 +580,12 @@ var PAPvaultCard = (function () {
     byDay: byDay,
     cpapDayOf: cpapDayOf,
     cpapDayStart: cpapDayStart,
+    daysOf: daysOf,
     dayKey: dayKey,
     signals: SIGNALS,
     DAY_START_HOUR: DAY_START_HOUR,
+    DAY_BREAK_MINUTES: DAY_BREAK_MINUTES,
+    DAY_BREAK_BEFORE_HOUR: DAY_BREAK_BEFORE_HOUR,
     RECORDING_MARKERS: RECORDING_MARKERS,
   };
 })();

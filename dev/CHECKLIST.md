@@ -100,6 +100,14 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 
 **Failure:** a night you slept through shown as two or three sessions; a session count higher than the number of `_EVE.edf` files for that night; a break of minutes swallowed into one session; or hours that count time when nothing was being recorded.
 
+## `day-break` -- a short break does not move the rest of the night to the next day
+
+**Protects:** that a few minutes out of the mask before 6 in the morning leaves one night on one date, and that the rule stops at noon.
+
+**How:** find a night where the mask came off and went back on within the hour, after 6 in the morning; the day after it is where the old behavior put the second half. Select the night's own date. Both sessions must be listed under it, the hours must be the two added together, and the day after must hold nothing unless something else was recorded then. Then check both limits. On a night whose break across 6 was longer than an hour, the two halves must land on different dates. A nap begun at noon or later must appear on the date it was taken however little time passed since the last recording, so a morning of short breaks never reaches into the afternoon.
+
+**Failure:** a night split across two dates by a break of minutes; a session after a break of more than an hour still counted with the night before; a nap begun at noon or later shown on the previous date; or a day's hours that do not add up to the sessions the page lists under it.
+
 ## `calendar-step` -- the day buttons move between nights that hold data
 
 **Protects:** that stepping through nights never lands on one with nothing to show, and stops at the ends rather than running off.

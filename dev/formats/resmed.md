@@ -150,7 +150,7 @@ What the table establishes, and what it doesn't:
 ## Days
 
 - **The prototype:** it takes each `DATALOG` folder as one day and works out none itself. (R-004, lines 145 and 153)
-- **PAPvault:** its days run from 6 in the morning to 6 the next morning, named by the date they begin, and a session belongs whole to the day it began in (Z, in `CLAUDE.md`).
+- **PAPvault:** its days run from 6 in the morning to 6 the next morning, named by the date they begin, and a session belongs whole to the day it began in -- or, where it began within an hour of the end of the session before it and before noon, to that session's day (Z, in `CLAUDE.md`).
 - **The folder does not decide anything.** PAPvault works from the session times in the file names and headers, so whether the machine's folders follow the same rule never matters. A generated card may file a session under either day.
 
 ## The generator's choices
