@@ -31,7 +31,7 @@ From ResMed's *Clinical guide* for the AirSense 10 AutoSet, AutoSet for Her, Eli
 | Leak | displayed range `0-120 L/min`, resolution `1 L/min` |
 | Stored intervals | flow and pressure at "25 Hz - every 40 ms"; flow limitation, leak, minute ventilation, pressure and snore at "1/2 Hz (2 sec)"; pulse rate and SpO2 at "1 Hz (1 sec)"; apnea and hypopnea events, CSR and RERA "aperiodic" |
 
-**How fast pressure rises is not in the guide.** It names `Response: Standard / Soft` and says nothing in cm H2O per minute. So the rate of rise, and how pressure decays afterwards, are **the generator's choices**.
+**How fast pressure rises is not in the guide.** It names `Response: Standard / Soft` and says nothing in cm H2O per minute. **Z supplied it on 2026-09-22**, which is where a gap goes: *"Following an OA event the machine immediately increases the pressure by ~1-2 then slowly decreases. After HA it raises slightly."* So an obstructive apnea is followed at once by a rise of 1 to 2 cm H2O and a hypopnea by a small one, and pressure falls back slowly between events. How slowly, and from what pressure it starts, remain the generator's choices. A central apnea moves it not at all, which is the guide's own (R-022).
 
 ## A breath (R-022, R-024)
 
@@ -73,6 +73,30 @@ The words themselves -- `Arousal`, `Apnea`, `Central Apnea`, `Hypopnea`, `Obstru
 ## No oximetry
 
 **The card carries no oximetry at all: no `SAD` files, no `Pulse.1s`, no `SpO2.1s`.** Z, 2026-09-22: *"No oximeter data is needed. I told you before, we MUST treat oxymeter as an undeveloped feature."* Oximetry is off in the page until Z has a card to test it against, and a sample card that carried it would be handing people a feature that does not exist. An earlier draft of this file described how to shape a desaturation; that was the agent writing toward a feature this project has deliberately parked, and it is gone.
+
+## What a night of successful therapy looks like
+
+**Z set the levels on 2026-09-23**, after the first draft of the card came back with a hundred events on it: *"Your numbers are quite high, can be cut, the data I show you is successful therapy."* The card is built to look like therapy that is working, not like a night that needs attention.
+
+**A word on where this came from, and what is written down.** Z looked at a night of their own and described it. The pictures were of real therapy, tampered with first and carrying no dates, and they are Z's own to show. **They are not in this repository and neither is any figure read off them**: what is recorded here is Z's direction, in Z's words, in the same way Z's earlier statement about breathing rate is recorded. `CLAUDE.md` is what makes that distinction matter -- nothing derived from real data goes into the repository unless Z has approved that item by name, and a level Z set is not a measurement of a night.
+
+What Z described, and what the generator now does:
+
+| | |
+|---|---|
+| **How many events** | a handful: between one and three and a half an hour counting everything, where the first draft had thirteen. Every word the machine writes appears somewhere on the card, plain `Apnea` included (Z, 2026-09-23: "Add A events too") |
+| **Pressure** | lives between about four and ten, not eight and sixteen. It starts low and comes back down over an hour or more, which is what "slowly decreases" turns out to mean |
+| **Breathing** | sits around fifteen a minute and a third of a liter a second, in the middle of the ranges Z gave on 2026-09-22 rather than spread across them |
+| **After an event** | the breathing catches up: a run of quicker, deeper breaths, which is what puts a spike on the rate, the tidal volume and the minute ventilation right where an event is marked |
+| **Flow limitation** | many short spikes, most of them small, rather than a few long stretches |
+| **Snore** | all but silent |
+| **Leak** | nothing for most of the night, then a plateau where the mask has moved, ragged rather than steady while it lasts |
+
+**Two channels are measures rather than recordings, and how they are measured shows.** The rate, the tidal volume and the minute ventilation are reported breath by breath, not averaged over the minute before: that is why the rate spikes after an event instead of being smoothed away, and why it never falls to nothing while the tidal volume collapses. And the mask pressure is averaged over a breath rather than over the two seconds its sample stands for -- it swings by the whole of EPR every breath, so a two-second mean lands on the inhale or the exhale by turns and draws a band across the whole swing instead of a line inside it.
+
+**Five nights, not one.** Z, 2026-09-23: *"Generate 5 different days, some without CSR."* They differ in when they begin, how long they run and what happens in them, and two of the five hold a Cheyne-Stokes stretch. Each is scripted from its own seed, so a night stays the same from one run to the next and differs from its neighbours. Five copies of one night would show a reader nothing a single night does not.
+
+**One thing here rests on no source, and is marked where it is made.** A plain `Apnea` is one the device did not put in either box, and what the pressure does after one is not stated anywhere read so far. The generator answers it like an obstructive apnea, because the guide has AutoSet adjusting "as a function of ... apnoea" and names the central case as the exception that moves nothing (R-022) -- so raising is the rule and not raising is the special case. That is a reading, not a fact, and it is the only one in this file.
 
 ## What was open, and how Z settled it on 2026-09-22
 

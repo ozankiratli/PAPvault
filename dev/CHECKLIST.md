@@ -68,6 +68,14 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 
 **Failure:** an Oximetry checkbox; an oximetry plot drawn; a `_SAD.edf` file appearing among the files the page opened; or a night whose length follows an oximeter rather than the therapy.
 
+## `sample-card` -- the card offered to other people is one they can learn from
+
+**Protects:** that the data PAPvault hands a stranger to try the site with looks like therapy and shows what the page does, without pretending to be anyone's night.
+
+**How:** build it with `python3 dev/synthetic/resmed.py realistic`, open `dev/synthetic/out/resmed/realistic` in the page, and read it as a person would. Pick the whole range: five nights, five days, every event name the card holds in the legend, and figures that differ from night to night rather than five copies of one. Then pick each night in turn and look at the flow under an event: it must stop under an apnea, halve under a hypopnea, and wax and wane through a Cheyne-Stokes stretch. Check the pressure answers events -- up at once after an obstructive apnea, a little after a hypopnea, nothing after a central one -- and comes back down over an hour or more. Check the three pressure traces are three lines and not a filled band.
+
+**Failure:** flow that carries on under an apnea annotation; a pressure that answers a central apnea or that returns to its floor in minutes; a rate that falls to nothing during an event, or that never spikes after one; five nights that look alike; an event name on the card that appears on no night; or a mask pressure drawn as a block rather than a line between the therapy and EPR traces.
+
 ## `calendar-select` -- the calendar selects the days it says
 
 **Protects:** that the period the summary describes is the period that was chosen, with a day running from 6 in the morning to 6 the next morning.
