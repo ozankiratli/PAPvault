@@ -24,6 +24,7 @@ TEMPLATE = """
 window.addEventListener("load", function () {
   var FILES = %s;
   var CLICKS = %s;
+  var TOGGLES = %s;
   var transfer = new DataTransfer();
   FILES.forEach(function (spec) {
     var raw = atob(spec[1]);
@@ -49,6 +50,62 @@ window.addEventListener("load", function () {
     return document.querySelectorAll(".uplot").length > 0
       && document.getElementById("summary-body").textContent.indexOf("Reading") === -1;
   }
+  function summaryCharts() { return document.querySelectorAll("#summary-plots .uplot").length; }
+
+  // How many lines the Events per Hour chart draws, from its own legend. Its first
+  // legend entry is the x axis, which is not one of them.
+  function eventSeries() {
+    var found = null;
+    document.querySelectorAll("#summary-plots .plot").forEach(function (plot) {
+      var title = plot.querySelector(".u-title");
+      if (title && title.textContent.indexOf("Events per Hour") === 0) { found = plot; }
+    });
+    return found ? Math.max(0, found.querySelectorAll(".u-legend .u-series").length - 1) : null;
+  }
+
+  function afterRedraw(then) {
+    var waited = 0;
+    (function wait() {
+      if (++waited > 4000) { then(); return; }
+      if (!drawn()) { setTimeout(wait, 25); return; }
+      setTimeout(then, 150);
+    })();
+  }
+
+  // The choices a period offers: which summary plots to draw, and which of the
+  // machine's events the per-hour plot draws.
+  function exerciseToggles(then) {
+    var out = { chartsBefore: summaryCharts(), seriesBefore: eventSeries() };
+    var charts = document.querySelectorAll("#summary-picker input[type=checkbox]");
+    out.summaryBoxes = charts.length;
+    var one = charts[0];
+    one.checked = false;
+    one.dispatchEvent(new Event("change"));
+    afterRedraw(function () {
+      out.chartsWithOneOff = summaryCharts();
+      one.checked = true;
+      one.dispatchEvent(new Event("change"));
+      afterRedraw(function () {
+        out.chartsBackOn = summaryCharts();
+        var events = document.querySelectorAll("#event-picker input[type=checkbox]");
+        var box = events[0];
+        box.checked = false;
+        box.dispatchEvent(new Event("change"));
+        afterRedraw(function () {
+          out.seriesWithOneOff = eventSeries();
+          out.chartsWhileEventOff = summaryCharts();
+          box.checked = true;
+          box.dispatchEvent(new Event("change"));
+          afterRedraw(function () {
+            out.seriesBackOn = eventSeries();
+            window.papvaultToggles = out;
+            then();
+          });
+        });
+      });
+    });
+  }
+
   var tries = 0;
   (function step() {
     if (++tries > 12000) { document.title = "GAVE UP " + document.getElementById("summary-body").textContent.slice(0, 80); return; }
@@ -64,6 +121,10 @@ window.addEventListener("load", function () {
       return;
     }
     if (!drawn()) { setTimeout(step, 25); return; }
+    if (TOGGLES && !window.papvaultToggles) {
+      exerciseToggles(function () { setTimeout(step, 25); });
+      return;
+    }
     setTimeout(function () {
       var titles = [];
       document.querySelectorAll(".plot .u-title").forEach(function (t) { titles.push(t.textContent); });
@@ -73,7 +134,19 @@ window.addEventListener("load", function () {
       document.querySelectorAll("#plots-body .u-over, #summary-plots .u-over").forEach(function (over) {
         boxes[over.style.left + "+" + over.style.width] = (boxes[over.style.left + "+" + over.style.width] || 0) + 1;
       });
+      // How much canvas is left below each plotting area. A y axis label is centred on
+      // its tick, so a chart whose lowest tick sits on the canvas edge has the bottom
+      // half of that label cut off -- which is what a plain 0 looked like.
+      var roomBelow = [];
+      document.querySelectorAll("#plots-body .uplot, #summary-plots .uplot").forEach(function (u) {
+        var over = u.querySelector(".u-over");
+        var wrap = u.querySelector(".u-wrap");
+        if (!over || !wrap) { return; }
+        roomBelow.push(Math.round(wrap.offsetHeight
+          - (parseFloat(over.style.top) + parseFloat(over.style.height))));
+      });
       document.title = "REPORT " + JSON.stringify({
+        roomBelow: roomBelow,
         summary: document.getElementById("summary-body").textContent,
         chartTitles: titles,
         summaryCharts: document.querySelectorAll("#summary-plots .uplot").length,
@@ -104,7 +177,16 @@ window.addEventListener("load", function () {
           return out;
         })(),
         pickerHidden: document.getElementById("plot-choose").hidden,
+        // Which group of choices the dialog offers: a day's stack and a period's
+        // summaries are different plots, so the dialog shows one or the other.
+        pickerGroups: {
+          day: document.getElementById("plot-picker").hidden,
+          summary: document.getElementById("summary-picker").hidden,
+          events: document.getElementById("event-picker-slot").hidden,
+          eventBoxes: document.querySelectorAll("#event-picker input[type=checkbox]").length
+        },
         problems: window.papvaultProblems,
+        toggles: window.papvaultToggles || null,
         markupAnywhere: document.querySelectorAll("#summary-body script, #plots-body script, #summary-plots script").length
       });
     }, 300);
@@ -112,11 +194,12 @@ window.addEventListener("load", function () {
 });
 """
 
-for name, case, whole, clicks in [
-    ("day", "plain-night", True, []),
-    ("range", "five-days", False, ["2026-03-10", "2026-03-14"]),
+for name, case, whole, clicks, toggles in [
+    ("day", "plain-night", True, [], False),
+    ("range", "five-days", False, ["2026-03-10", "2026-03-14"], True),
 ]:
-    probe = TEMPLATE % (json.dumps(carry(case, whole)), json.dumps(clicks))
+    probe = TEMPLATE % (json.dumps(carry(case, whole)), json.dumps(clicks),
+                        json.dumps(toggles))
     digest = base64.b64encode(hashlib.sha256(probe.encode()).digest()).decode()
     text = page.replace("script-src ", "script-src 'sha256-%s' " % digest, 1)
     text = text.replace("</body>", "<script>%s</script>\n</body>" % probe, 1)

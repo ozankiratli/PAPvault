@@ -81,6 +81,10 @@
   const plotsBody = document.getElementById("plots-body");
   const plotPicker = document.getElementById("plot-picker");
   const plotChoose = document.getElementById("plot-choose");
+  const plotPickerNote = document.getElementById("plot-picker-note");
+  const summaryPicker = document.getElementById("summary-picker");
+  const eventPicker = document.getElementById("event-picker");
+  const eventPickerSlot = document.getElementById("event-picker-slot");
   const loadingDialog = document.getElementById("loading-dialog");
   const loadingProgress = document.getElementById("loading-progress");
   const loadingTitle = document.getElementById("loading-dialog-title");
@@ -89,6 +93,7 @@
   const legendList = document.getElementById("legend-list");
   const legendToggle = document.getElementById("legend-toggle");
   const CHARTS_KEY = "papvault-charts";
+  const SUMMARY_CHARTS_KEY = "papvault-summary-charts";
 
   function pad(n) {
     return String(n).padStart(2, "0");
@@ -162,6 +167,48 @@
   }
 
   let chosenCharts = readCharts();
+
+  const DEFAULT_SUMMARIES = PAPvaultPlots.summaries.map(function (summary) {
+    return summary.key;
+  });
+
+  function readSummaryCharts() {
+    try {
+      const stored = window.localStorage.getItem(SUMMARY_CHARTS_KEY);
+      if (stored) {
+        return JSON.parse(stored).filter(function (key) {
+          return DEFAULT_SUMMARIES.indexOf(key) !== -1;
+        });
+      }
+    } catch (e) {
+      // Storage is unavailable in some private windows; the choice then lasts for this visit.
+    }
+    return DEFAULT_SUMMARIES.slice();
+  }
+
+  let chosenSummaries = readSummaryCharts();
+
+  // Which of the card's event names the per-hour chart draws. It is the card's own
+  // list, so it is not remembered between cards: every name starts on.
+  let chosenEvents = [];
+
+  PAPvaultPlots.summaries.forEach(function (summary) {
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.checked = chosenSummaries.indexOf(summary.key) !== -1;
+    box.addEventListener("change", function () {
+      chosenSummaries = PAPvaultPlots.summaries.filter(function (one) {
+        return one.key === summary.key ? box.checked : chosenSummaries.indexOf(one.key) !== -1;
+      }).map(function (one) {
+        return one.key;
+      });
+      writeSetting(SUMMARY_CHARTS_KEY, JSON.stringify(chosenSummaries));
+      renderPeriod();
+    });
+    label.append(box, document.createTextNode(" " + summary.title));
+    summaryPicker.append(label);
+  });
 
   PAPvaultPlots.charts.forEach(function (chart) {
     const label = document.createElement("label");
@@ -559,6 +606,7 @@
   async function renderPeriod() {
     clearViews();
     plotChoose.hidden = true;
+    plotChoose.textContent = "Choose Plots";
 
     if (!card) {
       summaryBody.replaceChildren(line("empty", "No data loaded."));
@@ -838,8 +886,21 @@
     if (oneDay) {
       return;
     }
+    // A period shows the summary stack, so the dialog offers that stack's choices.
+    plotChoose.hidden = false;
+    showPickerFor(false);
+    if (!chosenSummaries.length) {
+      summaryPlots.hidden = true;
+      summaryBody.append(line("empty",
+        "No summary plots are chosen. Open Choose Plots and pick one."));
+      return;
+    }
     summaryPlots.hidden = false;
     summaryView = PAPvaultPlots.showSummary(summaryPlots, {
+      charts: chosenSummaries,
+      eventsShown: labels.filter(function (text) {
+        return chosenEvents.indexOf(text) !== -1;
+      }),
       days: figures,
       eventLabels: labels,
       units: { pressure: unitOf(held, "pressure"), leak: unitOf(held, "leak") },
@@ -858,6 +919,7 @@
     const to = held[held.length - 1].session.end.getTime() / 1000;
     plotsBody.replaceChildren();
     plotChoose.hidden = false;
+    showPickerFor(true);
     if (!chosenCharts.length) {
       plotsBody.replaceChildren(line("empty", "No plots are chosen. Open Choose Plots and pick one."));
       return;
@@ -888,6 +950,38 @@
 
   // The calendar alone: which month it stands on, which days hold a recording, and
   // which are selected. It reads the selection but never changes it.
+  // One box per name the card holds, rebuilt when a card is read since the names are
+  // that card's. Every name starts on.
+  function buildEventPicker() {
+    chosenEvents = cardEvents.slice();
+    eventPicker.replaceChildren(...cardEvents.map(function (text) {
+      const label = document.createElement("label");
+      label.title = spellOf(text);
+      const box = document.createElement("input");
+      box.type = "checkbox";
+      box.checked = true;
+      box.addEventListener("change", function () {
+        chosenEvents = cardEvents.filter(function (one) {
+          return one === text ? box.checked : chosenEvents.indexOf(one) !== -1;
+        });
+        renderPeriod();
+      });
+      label.append(box, document.createTextNode(" " + labelOf(text)));
+      return label;
+    }));
+  }
+
+  // The dialog holds the choices for both views; which ones it shows follows what is
+  // on screen, since a day's stack and a period's summaries are different plots.
+  function showPickerFor(oneDay) {
+    plotPicker.hidden = !oneDay;
+    summaryPicker.hidden = oneDay;
+    eventPickerSlot.hidden = oneDay || !cardEvents.length;
+    plotPickerNote.textContent = oneDay
+      ? "Which plots the day's stack shows. What you choose is remembered."
+      : "Which plots the period's summary shows. What you choose is remembered.";
+  }
+
   function renderCalendar() {
     const focused = grid.contains(document.activeElement) ? document.activeElement.getAttribute("aria-label") : null;
     monthLabel.textContent = MONTHS[shown.getMonth()] + " " + shown.getFullYear();
@@ -1159,12 +1253,10 @@
 
   async function readChosenCard(items) {
     const name = folderNameOf(items);
-    folderStatus.replaceChildren(line(null, "Reading..."));
     showLoading(items.length + " files to look through.");
     try {
       card = await PAPvaultCard.read(items, function (done, total) {
         showLoading("Reading the recordings: " + done + " of " + total + ".");
-        folderStatus.replaceChildren(line(null, "Reading the recordings: " + done + " of " + total + "."));
       });
     } catch (error) {
       card = null;
@@ -1183,14 +1275,12 @@
     loadedSelection = null;
     // The card's event vocabulary, and each name's color, settled here rather than
     // per period, so neither moves as a reader steps between nights.
-    folderStatus.replaceChildren(line(null, "Reading the events."));
     cardEvents = vocabularyOf(await PAPvaultCard.eventNames(card.sessions,
       function (done, total) {
         showLoading("Reading the events: " + done + " of " + total + ".");
-        folderStatus.replaceChildren(line(null,
-          "Reading the events: " + done + " of " + total + "."));
       }));
     cardEventColors = colorsFor(cardEvents);
+    buildEventPicker();
     hideLoading();
     reportCard(name, items.length);
     // Reading is done, so the dialog gets out of the way. It stays open when there

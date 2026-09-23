@@ -65,8 +65,8 @@
             <button type="button" class="calendar-nav tip" id="calendar-next" aria-label="Next month">&rsaquo;</button>
           </div>
           <div class="calendar-steps">
-            <button type="button" class="calendar-step" id="day-prev">&lsaquo; Previous day</button>
-            <button type="button" class="calendar-step" id="day-next">Next day &rsaquo;</button>
+            <button type="button" class="calendar-step" id="day-prev"><span class="step-arrow">&lsaquo;</span>Previous day</button>
+            <button type="button" class="calendar-step" id="day-next"><span class="step-arrow">&rsaquo;</span>Next day</button>
           </div>
           <div class="calendar-grid" id="calendar-grid"></div>
           <p class="calendar-hint">Click a day, then another to select a range. Days run from 6 in the morning to 6 the next morning, so each night belongs to the date it began.</p>
@@ -152,8 +152,14 @@
         <h2 id="plots-dialog-title">Choose Plots</h2>
         <button type="button" class="modal-close tip" aria-label="Close">&times;</button>
       </div>
-      <p>Which plots the day's stack shows. What you choose is remembered.</p>
+      <p id="plot-picker-note">Which plots the day's stack shows. What you choose is remembered.</p>
       <div class="plot-picker" id="plot-picker" role="group" aria-label="Which plots to show"></div>
+      <div class="plot-picker" id="summary-picker" role="group" aria-label="Which summary plots to show" hidden></div>
+      <div id="event-picker-slot" hidden>
+        <h3 class="picker-heading">Events per Hour</h3>
+        <p>Which of your machine's events that plot draws. It changes nothing else.</p>
+        <div class="plot-picker" id="event-picker" role="group" aria-label="Which events to plot"></div>
+      </div>
     </div>
   </dialog>
 

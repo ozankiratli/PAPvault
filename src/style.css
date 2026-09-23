@@ -349,7 +349,7 @@ button:disabled {
 
 .card-title {
   margin: 0 0 0.75rem;
-  font-size: 1rem;
+  font-size: 1.15rem;
   font-weight: 600;
 }
 
@@ -433,10 +433,29 @@ button:disabled {
   margin-bottom: 0.5rem;
 }
 
+/* The arrow sits against its own edge and the words stay centred in the whole
+   button, which taking the arrow out of the text flow is what allows. */
 .calendar-step {
+  position: relative;
   flex: 1;
-  padding: 0.3rem 0.4rem;
+  padding: 0.3rem 1.1rem;
   font-size: 0.8rem;
+  text-align: center;
+}
+
+.step-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  line-height: 1;
+}
+
+#day-prev .step-arrow {
+  left: 0.5rem;
+}
+
+#day-next .step-arrow {
+  right: 0.5rem;
 }
 
 .calendar-grid {
@@ -668,6 +687,12 @@ button:disabled {
    and a cursor at one place means the same place in every chart. */
 .plot {
   margin: 0;
+}
+
+.plot + .plot {
+  margin-top: 1em;
+  padding-top: 1em;
+  border-top: 1px solid var(--border);
 }
 
 .plot .uplot {
@@ -964,6 +989,11 @@ footer a {
   margin: 0;
 }
 
+#plot-choose {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.6rem;
+}
+
 /* The picker is in a dialog now, so it lays its choices out in a column rather than
    squeezing them onto one row of a card. */
 #plots-dialog .plot-picker {
@@ -993,4 +1023,22 @@ footer a {
 .loading-modal #loading-progress {
   margin: 0.75rem 0 0;
   font-variant-numeric: tabular-nums;
+}
+
+/* A heading inside the plots dialog, above the group it names. */
+.picker-heading {
+  margin: 1.1rem 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+#plots-dialog #summary-picker,
+#plots-dialog #event-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.35rem 1rem;
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+  font-size: 0.9rem;
 }

@@ -147,9 +147,11 @@ PAPvault sets no threshold of its own. It has no view on what counts as a large 
 
 **The plots card in the middle shows one night or many.** Pick one night and it shows that night in detail. Pick a range and it shows a chart per figure instead, with a point or a bar for every night: hours used, how many sessions, events per hour, and the same pressure and leak figures.
 
+**The Events per Hour plot can be narrowed to the events you care about.** With a period on screen, **Choose Plots** also lists every event name your card holds; unchecking one takes its line off that plot and changes nothing else. Those boxes are your card's own names, so they start over, all on, each time you open a folder.
+
 **A night with none of an event counts zero, not nothing.** If your machine named a kind of event on any night in the period you picked, every other night in that period shows zero of it rather than a gap. A gap would read as "not known"; zero is what was recorded.
 
-**A single night is drawn as a stack of plots on one time axis**: flow, pressure, leak rate, respiratory rate, flow limitation, snore, tidal volume and minute ventilation. **Choose Plots**, at the top of the card, opens the list to check and uncheck; the page remembers what you chose. Turning one on or off redraws the stack from what is already in hand, so it does not read your card again -- unless you turn on a plot whose signal has not been read yet, which is the one case where a file is opened.
+**A single night is drawn as a stack of plots on one time axis**: flow, pressure, leak rate, respiratory rate, flow limitation, snore, tidal volume and minute ventilation. **Choose Plots**, at the top of the card, opens the list to check and uncheck; the page remembers what you chose. A period has its own list there, since its plots are different ones, and its own choice is remembered separately. Turning one on or off redraws the stack from what is already in hand, so it does not read your card again -- unless you turn on a plot whose signal has not been read yet, which is the one case where a file is opened.
 
 **Oximetry is turned off in this version, and no oximetry file is opened.** ResMed records it only on the AirSense 10, and an oximeter it will work with is hard to come by, so there has been no card to test the reading against. Rather than show a figure nobody has checked, PAPvault leaves it alone until there is one. Nothing about it decides anything else either: how long a night lasted is measured from the flow and the pressure, never from an oximeter.
 

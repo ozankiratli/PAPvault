@@ -89,13 +89,30 @@ class Checks:
         self.that(what, all(a > b for a, b in zip(values, values[1:])), values)
 
 
+# What the day view measured, so the period view can be checked against it: the two
+# stacks must put their plots in the same place on screen.
+SEEN = {}
+
+
+def room_below(report, checks):
+    checks.that("every plot leaves room below it for its lowest label",
+                report["roomBelow"] and min(report["roomBelow"]) >= 6, report["roomBelow"])
+
+
 def check_day(report, checks):
+    room_below(report, checks)
+    SEEN["dayPlotLeft"] = sorted(report["plotBoxes"])[0].split("+")[0]
     checks.that("the day view draws the strip and eight charts",
                 report["dayCharts"] == 9, report["dayCharts"])
     checks.that("the day view draws no summary chart",
                 report["summaryCharts"] == 0, report["summaryCharts"])
     checks.that("the button that chooses plots is shown for a single day",
                 report["pickerHidden"] is False)
+    checks.that("and the dialog offers the day stack's plots",
+                report["pickerGroups"]["day"] is False
+                and report["pickerGroups"]["summary"] is True, report["pickerGroups"])
+    checks.that("with no events group, which belongs to the period view",
+                report["pickerGroups"]["events"] is True, report["pickerGroups"])
     checks.that("the picker does not offer oximetry",
                 not any("Oximetry" in title for title in report["chartTitles"]))
     # A card writes "bpm" because EDF gives the unit eight bytes; the page spells it.
@@ -129,11 +146,45 @@ def check_day(report, checks):
 
 
 def check_range(report, checks):
+    room_below(report, checks)
+    # Z, 2026-09-22: "I want the daily plots to be placed on the screen the same way
+    # the multiday plots are placed."
+    checks.that("a period puts its plots where a day puts its own",
+                sorted(report["plotBoxes"])[0].split("+")[0] == SEEN.get("dayPlotLeft"),
+                (sorted(report["plotBoxes"])[0].split("+")[0], SEEN.get("dayPlotLeft")))
     checks.that("a range draws five summary charts",
                 report["summaryCharts"] == 5, report["summaryCharts"])
     checks.that("a range draws no day chart", report["dayCharts"] == 0, report["dayCharts"])
-    checks.that("the button that chooses plots is hidden for a range",
-                report["pickerHidden"] is True)
+    # A period has plots of its own to choose from, which it did not before 2026-09-22.
+    checks.that("the button that chooses plots is shown for a range too",
+                report["pickerHidden"] is False)
+    checks.that("and the dialog offers the summary plots instead of the day's",
+                report["pickerGroups"]["summary"] is False
+                and report["pickerGroups"]["day"] is True, report["pickerGroups"])
+    checks.that("and which events the per-hour plot draws",
+                report["pickerGroups"]["events"] is False, report["pickerGroups"])
+    checks.that("one box per name the card holds",
+                report["pickerGroups"]["eventBoxes"] == 4,
+                report["pickerGroups"]["eventBoxes"])
+    # The choices do something, which is the point of offering them.
+    toggles = report["toggles"]
+    checks.that("the period offers a box per summary plot",
+                toggles["summaryBoxes"] == 5, toggles["summaryBoxes"])
+    checks.that("turning a summary plot off takes one chart away",
+                toggles["chartsWithOneOff"] == toggles["chartsBefore"] - 1,
+                (toggles["chartsBefore"], toggles["chartsWithOneOff"]))
+    checks.that("turning it back on brings it back",
+                toggles["chartsBackOn"] == toggles["chartsBefore"],
+                (toggles["chartsBefore"], toggles["chartsBackOn"]))
+    checks.that("turning an event off takes one line off the per-hour plot",
+                toggles["seriesWithOneOff"] == toggles["seriesBefore"] - 1,
+                (toggles["seriesBefore"], toggles["seriesWithOneOff"]))
+    checks.that("and leaves every other summary plot alone",
+                toggles["chartsWhileEventOff"] == toggles["chartsBefore"],
+                (toggles["chartsBefore"], toggles["chartsWhileEventOff"]))
+    checks.that("turning that event back on brings its line back",
+                toggles["seriesBackOn"] == toggles["seriesBefore"],
+                (toggles["seriesBefore"], toggles["seriesBackOn"]))
     checks.that("the range's summary names six sessions across five days",
                 "6 sessions" in report["summary"] and "5 days" in report["summary"],
                 report["summary"][:80])
@@ -385,6 +436,15 @@ def check_step(report, checks):
     checks.that("every night of the card shows the same strip rows, in the same order",
                 len(set(seen)) == 1, sorted(set(seen)))
     checks.that("and there were several nights to compare", len(seen) >= 3, len(seen))
+    # Z, 2026-09-22: "move the arrows to sides, the text should still be centered."
+    prev, on = report["buttons"]["prev"], report["buttons"]["next"]
+    checks.that("the back arrow sits against the left edge of its button",
+                prev["arrowFromLeft"] < prev["width"] / 4, prev)
+    checks.that("the forward arrow sits against the right edge of its own",
+                on["arrowFromLeft"] > on["width"] * 3 / 4, on)
+    checks.that("and both sets of words stay centred in the whole button",
+                abs(prev["wordsOffCentre"]) <= 2 and abs(on["wordsOffCentre"]) <= 2,
+                (prev["wordsOffCentre"], on["wordsOffCentre"]))
 
 
 # Each entry: the builder beside this file, the page it writes, the word its report

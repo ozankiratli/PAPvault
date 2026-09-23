@@ -63,6 +63,27 @@ window.addEventListener("load", function () {
     })();
   }
 
+  // Where each step button's arrow and its words sit inside it: the arrow against
+  // its own edge, the words centred in the whole button.
+  function stepButton(id) {
+    var button = document.getElementById(id);
+    var box = button.getBoundingClientRect();
+    var arrow = button.querySelector(".step-arrow").getBoundingClientRect();
+    var words = null;
+    button.childNodes.forEach(function (node) {
+      if (node.nodeType !== 3 || !node.textContent.trim()) { return; }
+      var range = document.createRange();
+      range.selectNode(node);
+      words = range.getBoundingClientRect();
+    });
+    return {
+      width: Math.round(box.width),
+      arrowFromLeft: Math.round(arrow.left + arrow.width / 2 - box.left),
+      wordsOffCentre: words === null ? null
+        : Math.round((words.left + words.width / 2) - (box.left + box.width / 2))
+    };
+  }
+
   // The names down the day's event strip, top first. They come from the hover bands,
   // which carry one per row in the order they are drawn.
   function stripRows() {
@@ -97,6 +118,7 @@ window.addEventListener("load", function () {
       report.forwardStoppedAt = selected();
       report.forwardButtonDead = true;
       report.problems = window.papvaultProblems;
+      report.buttons = { prev: stepButton("day-prev"), next: stepButton("day-next") };
       document.title = "STEP " + JSON.stringify(report);
       return;
     }

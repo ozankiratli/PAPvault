@@ -10,14 +10,19 @@ var PAPvaultPlots = (function () {
   // Every chart in a stack gets the same left axis width, so their plotting areas
   // line up and a cursor at one x means the same place in all of them. The width
   // grows to fit the event names a device wrote, up to a cap.
-  const AXIS_WIDTH = 64;
-  const AXIS_WIDTH_CAP = 170;
+  const AXIS_WIDTH = 48;
+  const AXIS_WIDTH_CAP = 140;
   const LABEL_FONT = "11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
   const CHART_HEIGHT = 150;
   // Set here, because uPlot reserves room on the right only for a chart whose time
   // axis is shown, which would leave the bottom chart narrower than the rest. A day
   // stack starts from this and widens the right side to fit its own time labels.
-  const PLOT_PADDING = [10, 18, 0, 0];
+  //
+  // The bottom is not zero: a y axis label is drawn centred on its tick, so the
+  // lowest one -- a plain 0 on every signal that cannot go below it -- needs half its
+  // own height below the plotting area or the canvas ends through the middle of it.
+  // Only a chart showing the time axis has that room for free.
+  const PLOT_PADDING = [10, 18, 9, 0];
   const EVENT_ROW_HEIGHT = 22;
   const EVENT_OPACITY = 0.22;
   // A band is filled faintly across the plot and edged with a solid line at the
@@ -551,7 +556,7 @@ var PAPvaultPlots = (function () {
         names.push(event.text);
       }
     }
-    const axis = axisWidthFor(names);
+    const axis = axisWidthFor(names, AXIS_WIDTH);
     const labelWidth = widestTimeLabel(given);
     const options = Object.assign({}, given, {
       axisWidth: axis.width,
@@ -676,7 +681,7 @@ var PAPvaultPlots = (function () {
       return day.seconds;
     });
     const specs = summary.perLabel
-      ? options.eventLabels.map(function (text, index) {
+      ? (options.eventsShown || options.eventLabels).map(function (text, index) {
         return {
           name: nameOf(options, text),
           color: options.eventColors.get(text) || options.colorOf("--plot-event"),
@@ -883,8 +888,11 @@ var PAPvaultPlots = (function () {
     container.style.setProperty("--plot-axis", AXIS_WIDTH + "px");
     const built = [];
     const drawn = [];
-    SUMMARIES.forEach(function (summary, index) {
-      const made = buildSummary(container, summary, options, width, index === SUMMARIES.length - 1);
+    const chosen = SUMMARIES.filter(function (summary) {
+      return !options.charts || options.charts.indexOf(summary.key) !== -1;
+    });
+    chosen.forEach(function (summary, index) {
+      const made = buildSummary(container, summary, options, width, index === chosen.length - 1);
       if (made) {
         built.push(made);
         drawn.push(summary.key);

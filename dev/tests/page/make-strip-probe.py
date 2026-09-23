@@ -109,7 +109,12 @@ window.addEventListener("load", function () {
               && Math.max(Math.abs(whole.data[i] - rule[0]), Math.abs(whole.data[i + 1] - rule[1]),
                           Math.abs(whole.data[i + 2] - rule[2])) <= 12) { ruled++; }
         }
-        if (ruled > width / 4) { rules++; }
+        // The rule is dotted one pixel on, three off, so a full line of it covers
+        // about a quarter of the width and never more. An eighth is well above the
+        // nothing that any other row holds, and well below what a line gives.
+        // Demanding more than a quarter came down to whether the plot's width
+        // divided by four, which is how this passed by luck until 2026-09-22.
+        if (ruled > width / 8) { rules++; }
       }
       document.title = "STRIP " + JSON.stringify({ rows: found, ruleLines: rules });
     }, 400);
