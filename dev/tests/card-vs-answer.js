@@ -69,7 +69,10 @@ for (const caseName of fs.readdirSync(path.join(ROOT, "dev/synthetic/out/resmed"
       const s = byLabel[label];
       checks++;
       if (!s) { bad++; console.log("  MISSING loaded signal " + label); continue; }
-      expect(label + " unit", s.unit, spec.unit);
+      // What the page must show, which is not always what the file could spell: EDF
+      // gives a unit eight bytes, so a header says "bpm" where a reader needs
+      // "breaths/min". The parser is checked against the file's own unit instead.
+      expect(label + " unit", s.unit, spec.unit_shown === undefined ? spec.unit : spec.unit_shown);
       expect(label + " interval", s.interval, spec.seconds_between_samples);
       expect(label + " samples", s.y.length, spec.samples);
       expect(label + " first", s.y[0], spec.first_value);
@@ -80,8 +83,12 @@ for (const caseName of fs.readdirSync(path.join(ROOT, "dev/synthetic/out/resmed"
         iso(new Date(new Date(want.start).getTime() + (spec.samples - 1) * spec.seconds_between_samples * 1000)));
     }
 
-    const wantEvents = [...(want.events || []), ...(want.csl_events || [])]
-      .sort((a, b) => new Date(a.start) - new Date(b.start));
+    // What the page must draw, which is not one event per annotation: a pair of marks
+    // that bracket a period is drawn as one event spanning it. The answer carries the
+    // folded list, derived from how the card was built.
+    const wantEvents = want.shown_events
+      || [...(want.events || []), ...(want.csl_events || [])]
+        .sort((a, b) => new Date(a.start) - new Date(b.start));
     expect("session " + i + " event count", data.events.length, wantEvents.length);
     wantEvents.forEach((e, j) => {
       if (!data.events[j]) return;
@@ -89,6 +96,35 @@ for (const caseName of fs.readdirSync(path.join(ROOT, "dev/synthetic/out/resmed"
       expect("event " + j + " start", iso(data.events[j].start), e.start);
       expect("event " + j + " duration", data.events[j].duration, e.duration);
     });
+
+    // How long the leak ran above zero: each sample above zero stands for the step of
+    // recording it covers. The answer comes from the runs the generator built, so a
+    // case whose leak goes on and off has a total that is not the recorded time.
+    const leak = data.signals.leak;
+    if (leak && want.leak_above_zero_seconds !== undefined) {
+      let above = 0;
+      for (let k = 0; k < leak.y.length; k++) {
+        if (leak.y[k] > 0) { above += leak.interval; }
+      }
+      expect("session " + i + " leak above zero, seconds", above, want.leak_above_zero_seconds);
+      if (want.leak_runs) {
+        const span = (new Date(want.end) - new Date(want.start)) / 1000;
+        expect("session " + i + " leak ran for less than the night", above < span, true);
+      }
+      for (const run of want.leak_runs || []) {
+        const at = Math.round((new Date(run.start).getTime() / 1000 - leak.x[0]) / leak.interval);
+        const last = at + Math.round(run.seconds / leak.interval) - 1;
+        expect("the run at " + run.start + " starts above zero", leak.y[at] > 0, true);
+        expect("the run at " + run.start + " is still above zero at its end",
+          leak.y[last] > 0, true);
+        if (at > 0) {
+          expect("the sample before the run at " + run.start + " is at zero", leak.y[at - 1], 0);
+        }
+        if (last < leak.y.length - 1) {
+          expect("the sample after the run at " + run.start + " is at zero", leak.y[last + 1], 0);
+        }
+      }
+    }
 
     checks++;
     if (JSON.stringify(data.signals) .includes(answer.identifying_marker)

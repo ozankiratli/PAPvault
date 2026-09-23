@@ -75,3 +75,19 @@ The symptom was a suite that failed about one run in three, on a different probe
 Two things to keep straight. The in-page counter is **not** the guard against a hang: the runner's `subprocess.run(..., timeout=...)` is, and that one is measured in wall clock. And a give-up from the counter means *slow*, not *broken*, so it must not be reported as a malformed result -- the message now says so.
 
 The limits are 6000 polls against a 400-second virtual budget and a 600-second wall-clock timeout, which is roughly five times the headroom the marginal case needed. **A probe that polls needs its patience measured against the clock the work runs on**, and under virtual time those are two different clocks.
+
+## A poll counter on virtual time gives up under load, 2026-09-22
+
+Already recorded above as a trap; this is a second instance with a number attached. The range probe reported `GAVE UP No data loaded.` in one full-suite run, then passed **five times out of five** when run on its own. Nothing about the page had changed in a way that touches loading; what differs is that inside a suite run it starts moments after another headless browser, and `--virtual-time-budget` advances the clock to the next pending timer whether or not the real work behind it has finished.
+
+So the in-page ceiling of 6000 polls, which is 150 seconds of virtual time, is a race against real work rather than a timeout. It was raised to 12000 in every probe, still well inside the 400-second virtual budget, with the 600-second wall clock left as the real guard. **Measure before adjusting one of these**: running the probe alone is what tells you whether the page is slow or broken, and it took five runs to be sure.
+
+## A probe that waited for silence, when silence came first, 2026-09-22
+
+Making the folder handler put a box on screen before it touches the file list changed nothing a reader would call behavior, and broke four probes at once. Each of them waited for the page to be ready like this:
+
+    if (folderStatus.textContent.indexOf("Reading") === 0) { wait(); return; }
+
+which reads as "wait until it has stopped reading" and actually means "wait until it is not saying it is reading". Those are the same thing only while the page starts reading in the same task that receives the folder. Once the handler yields once before starting, there is a moment when the folder has been handed over and nothing has been said yet, and a probe that begins in that moment finds an empty calendar. The step probe walked forty empty days and reported `LOOPED`; the range and events probes clicked at calendar cells that did not exist, got no range, and failed six checks between them with figures from the wrong day.
+
+**The lesson is about what a readiness test is made of.** The absence of a message is not the presence of a result. Every one of them now waits for the result itself -- `document.querySelector(".calendar-day.has-data")`, a card with nights in it -- which is true only once there is something to click and false in that empty moment either side of it.

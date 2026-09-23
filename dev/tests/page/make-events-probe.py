@@ -1,7 +1,7 @@
 """A probe that reads the summary's event bar chart, pixel by pixel.
 
 Both things this checks are painted onto a canvas, so no DOM check can see them:
-that the bars run longest at the top with the first palette color on the longest,
+that the bars run longest at the top, each in the colour its name was given,
 and that each count is printed to the RIGHT of its bar rather than centered on
 its end. It reports, per row from the top, the bar's color and where it ends, and
 where the count's leftmost and rightmost pixels are.
@@ -42,7 +42,11 @@ window.addEventListener("load", function () {
   input.dispatchEvent(new Event("change"));
 
   function rgbOf(text) {
-    var hex = text.trim().replace("#", "");
+    var said = text.trim();
+    if (said.indexOf("rgb") === 0) {
+      return said.replace(/[^0-9,]/g, "").split(",").slice(0, 3).map(Number);
+    }
+    var hex = said.replace("#", "");
     return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16), parseInt(hex.slice(4, 6), 16)];
   }
   function styleOf(name) {
@@ -51,8 +55,16 @@ window.addEventListener("load", function () {
 
   var tries = 0;
   (function step() {
-    if (++tries > 6000) { document.title = "GAVE UP"; return; }
-    if (document.getElementById("folder-status").textContent.indexOf("Reading") === 0) { setTimeout(step, 25); return; }
+    if (++tries > 12000) { document.title = "GAVE UP"; return; }
+    // A card is loaded when the calendar has days to click. The page does not say it
+    // is reading until it has begun, so waiting for that alone lets a probe click
+    // before there is anything to click.
+    if (document.getElementById("loading-dialog").open
+        || !document.querySelector(".calendar-day.has-data")
+        || document.getElementById("folder-status").textContent.indexOf("Reading") === 0) {
+      setTimeout(step, 25);
+      return;
+    }
     if (CLICKS.length) {
       CLICKS.forEach(function (iso) {
         var cell = document.querySelector('.calendar-day[aria-label="' + iso + '"]');
@@ -75,7 +87,10 @@ window.addEventListener("load", function () {
       var height = Math.round(parseFloat(over.style.height) * scale);
       var text = rgbOf(styleOf("--text"));
       var palette = [];
-      for (var n = 1; n <= 7; n++) { palette.push([n, rgbOf(styleOf("--plot-event-" + n))]); }
+      ["orange", "bluish-green", "blue", "vermilion", "yellow", "sky-blue",
+       "reddish-purple"].forEach(function (shade) {
+        palette.push([shade, rgbOf(styleOf("--plot-event-" + shade))]);
+      });
 
       // Every bar is found by its own color and placed by the pixels it actually
       // covers, so nothing here depends on this script agreeing with the page
@@ -97,7 +112,7 @@ window.addEventListener("load", function () {
           palette.forEach(function (entry) {
             if (red !== entry[1][0] || green !== entry[1][1] || blue !== entry[1][2]) { return; }
             var held = bars[entry[0]];
-            if (!held) { bars[entry[0]] = { color: entry[0], barEnd: x, top: y, bottom: y }; return; }
+            if (!held) { bars[entry[0]] = { color: entry[0], rgb: entry[1], barEnd: x, top: y, bottom: y }; return; }
             if (x > held.barEnd) { held.barEnd = x; }
             if (y < held.top) { held.top = y; }
             if (y > held.bottom) { held.bottom = y; }
@@ -119,7 +134,8 @@ window.addEventListener("load", function () {
       var legend = [];
       document.querySelectorAll("#legend-list li").forEach(function (item) {
         var swatch = item.querySelector(".legend-swatch");
-        legend.push([item.children[1].textContent, swatch.style.background, item.children[2].textContent]);
+        legend.push([item.children[1].textContent, swatch.style.background,
+                     item.children[2].textContent, rgbOf(getComputedStyle(swatch).backgroundColor)]);
       });
       document.title = "EVENTS " + JSON.stringify({ scale: scale, rows: found, legend: legend });
     }, 400);

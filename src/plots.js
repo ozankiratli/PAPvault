@@ -173,6 +173,54 @@ var PAPvaultPlots = (function () {
     return "";
   }
 
+  // What an event name is drawn as. The caller decides; without one, the device's own
+  // word is drawn. Nothing here is the identity of an event -- that stays the text the
+  // file carried, which is what colors and counts are keyed on.
+  function nameOf(options, text) {
+    return options.labelOf ? options.labelOf(text) : text;
+  }
+
+  // The words a drawn name stands for, from the caller. Without one, a name stands
+  // for itself and no hover is added.
+  function spellingOf(options, text) {
+    return options.spellOf ? options.spellOf(text) : text;
+  }
+
+  // uPlot paints its axis labels onto the canvas, so there is no element to hover for
+  // a row's name. This lays one transparent band per row over the axis column, each
+  // carrying what its name stands for. Rows are given top down, since that is how a
+  // reader sees them, whatever order the chart's splits run in.
+  //
+  // Called from a draw hook, and placed from u.bbox rather than from the over
+  // element's inline styles: those are still empty while the chart is being built,
+  // and a band of no width is a band nothing can hover.
+  function nameHovers(u, topDown, options) {
+    const wrap = u.over.parentNode;
+    if (!wrap || !topDown.length) {
+      return;
+    }
+    let holder = u.papvaultNameHovers;
+    if (!holder) {
+      holder = document.createElement("div");
+      holder.className = "name-hovers";
+      topDown.forEach(function (text, index) {
+        const band = document.createElement("span");
+        band.style.top = (index / topDown.length * 100) + "%";
+        band.style.height = (100 / topDown.length) + "%";
+        band.title = spellingOf(options, text);
+        holder.append(band);
+      });
+      wrap.append(holder);
+      u.papvaultNameHovers = holder;
+    }
+    // u.bbox is in canvas pixels, which are CSS pixels times the device ratio.
+    const ratio = devicePixelRatio || 1;
+    holder.style.left = "0px";
+    holder.style.top = (u.bbox.top / ratio) + "px";
+    holder.style.width = (u.bbox.left / ratio) + "px";
+    holder.style.height = (u.bbox.height / ratio) + "px";
+  }
+
   // One color per event name, in the order the names are handed over, cycling when
   // a card carries more names than the palette holds. How many there are is a
   // property of the theme, since each theme carries the subset that reads against
@@ -251,6 +299,17 @@ var PAPvaultPlots = (function () {
     return Math.ceil(widest);
   }
 
+  // The widest date label the period will draw, in pixels.
+  function widestDateLabel(options) {
+    const ctx = document.createElement("canvas").getContext("2d");
+    ctx.font = LABEL_FONT;
+    let widest = 0;
+    for (const day of options.days) {
+      widest = Math.max(widest, ctx.measureText(options.formatDate(day.seconds)).width);
+    }
+    return Math.ceil(widest);
+  }
+
   function axesFor(options, showTimes) {
     return [
       {
@@ -274,9 +333,11 @@ var PAPvaultPlots = (function () {
   }
 
   // The strip above the charts: one row per distinct event text, keeping the words
-  // the device wrote and never grouping two of them together.
+  // the device wrote and never grouping two of them together. The caller's order is
+  // the card's, so a row is in the same place on every night of it; a name only this
+  // night holds is added after those.
   function buildStrip(parent, events, options, width) {
-    const labels = [];
+    const labels = (options.eventLabels || []).slice();
     for (const event of events) {
       if (labels.indexOf(event.text) === -1) {
         labels.push(event.text);
@@ -314,13 +375,18 @@ var PAPvaultPlots = (function () {
             });
           },
           values: function () {
-            return labels.map(options.fitLabel);
+            // The splits count up from the bottom, and the first name is drawn at the
+            // top, so the labels are handed back the other way round.
+            return labels.slice().reverse().map(function (text) {
+              return options.fitLabel(nameOf(options, text));
+            });
           },
         },
       ],
       series: [{}, { show: false }],
       hooks: {
         draw: [function (u) {
+          nameHovers(u, labels, options);
           const ctx = u.ctx;
           ctx.save();
           ctx.beginPath();
@@ -328,12 +394,33 @@ var PAPvaultPlots = (function () {
           ctx.clip();
           const least = Math.ceil(EVENT_LEAST * devicePixelRatio);
           const height = u.bbox.height / labels.length;
+          // A dotted rule between one row and the next, so a bar is read against the
+          // name beside it rather than the one above.
+          ctx.save();
+          ctx.strokeStyle = options.colorOf("--plot-row-line");
+          ctx.lineWidth = Math.max(1, Math.round(devicePixelRatio));
+          ctx.setLineDash([Math.max(1, Math.round(devicePixelRatio)),
+            Math.max(3, Math.round(3 * devicePixelRatio))]);
+          // One at every edge, the outer two included, so the strip reads as a set of
+          // rows rather than as bars floating above the charts.
+          for (let i = 0; i <= labels.length; i++) {
+            // Kept inside the plotting area, or the first and the last would fall on
+            // its own edge and be clipped away.
+            const edge = Math.min(Math.max(Math.round(u.bbox.top + i * height), u.bbox.top),
+              u.bbox.top + u.bbox.height - 1);
+            const at = edge + 0.5;
+            ctx.beginPath();
+            ctx.moveTo(u.bbox.left, at);
+            ctx.lineTo(u.bbox.left + u.bbox.width, at);
+            ctx.stroke();
+          }
+          ctx.restore();
           for (const event of events) {
             const from = u.valToPos(event.seconds, "x", true);
             const to = u.valToPos(event.seconds + Math.max(event.duration, 0), "x", true);
-            // Row 0 sits at the bottom, because the y axis that names the rows
-            // counts upward from there.
-            const top = u.bbox.top + (labels.length - 1 - row.get(event.text)) * height;
+            // The first name is the top row, so the rows read in the order the card
+            // set and a night can be read against the night before it.
+            const top = u.bbox.top + row.get(event.text) * height;
             ctx.fillStyle = options.eventColors.get(event.text) || options.colorOf("--plot-event");
             ctx.fillRect(from, top + height * 0.14, Math.max(to - from, least), height * 0.72);
           }
@@ -476,7 +563,7 @@ var PAPvaultPlots = (function () {
         PLOT_PADDING[2], PLOT_PADDING[3]],
       // The caller's order, where it gave one, so a name is the same color here as
       // it is in the summary and the legend.
-      eventColors: eventColorsFor(given.eventLabels || names, given.colorOf),
+      eventColors: given.eventColors || eventColorsFor(given.eventLabels || names, given.colorOf),
     });
     container.style.setProperty("--plot-axis", axis.width + "px");
     const built = [];
@@ -558,8 +645,13 @@ var PAPvaultPlots = (function () {
         stroke: options.colorOf("--muted"),
         grid: { stroke: options.colorOf("--border"), width: 1 },
         ticks: { stroke: options.colorOf("--border") },
-        splits: function () {
-          const step = Math.max(1, Math.ceil(options.days.length / 8));
+        splits: function (u) {
+          // As many days as fit at the width the labels measure, so a long period
+          // thins out instead of writing one date over the next.
+          const room = u.over.clientWidth
+            ? Math.max(1, Math.floor(u.over.clientWidth / options.dateSpace))
+            : 8;
+          const step = Math.max(1, Math.ceil(options.days.length / room));
           return options.days.filter(function (ignored, index) {
             return index % step === 0;
           }).map(function (day) {
@@ -586,7 +678,7 @@ var PAPvaultPlots = (function () {
     const specs = summary.perLabel
       ? options.eventLabels.map(function (text, index) {
         return {
-          name: text,
+          name: nameOf(options, text),
           color: options.eventColors.get(text) || options.colorOf("--plot-event"),
           literal: true,
           of: function (day) {
@@ -643,7 +735,7 @@ var PAPvaultPlots = (function () {
     const built = new uPlot({
       width: width,
       height: CHART_HEIGHT + (showDates ? 30 : 0),
-      padding: PLOT_PADDING,
+      padding: options.padding,
       title: summary.title + (unit ? " (" + unit + ")" : ""),
       cursor: { sync: { key: SUMMARY_SYNC.key, scales: ["x", null] }, drag: { x: true, y: false } },
       legend: { live: true },
@@ -674,8 +766,13 @@ var PAPvaultPlots = (function () {
     const width = Math.max(container.clientWidth, 240);
     // In a narrow card the names may not take more than half of it, or there is
     // no room left for the bars they label.
-    const axis = axisWidthFor(names, width * 0.5);
-    const colors = eventColorsFor(names, given.colorOf);
+    // Measured against what is drawn, not against the word the file carried, or a
+    // short form would reserve room for a name nobody sees.
+    const drawn = names.map(function (text) {
+      return nameOf(given, text);
+    });
+    const axis = axisWidthFor(drawn, width * 0.5);
+    const colors = given.eventColors || eventColorsFor(names, given.colorOf);
     const counts = names.map(function (name) {
       return given.counts.get(name) || 0;
     });
@@ -722,13 +819,14 @@ var PAPvaultPlots = (function () {
           values: function () {
             // The splits count up from the bottom while the names run down from
             // the top, so the labels are handed back the other way round.
-            return names.slice().reverse().map(axis.fit);
+            return drawn.slice().reverse().map(axis.fit);
           },
         },
       ],
       series: [{}, { show: false }],
       hooks: {
         draw: [function (u) {
+          nameHovers(u, names, given);
           const ctx = u.ctx;
           ctx.save();
           const row = u.bbox.height / names.length;
@@ -770,11 +868,17 @@ var PAPvaultPlots = (function () {
     const HALF_DAY = 43200;
     const from = given.from - HALF_DAY;
     const to = given.to + HALF_DAY;
+    const dateWidth = widestDateLabel(given);
     const options = Object.assign({}, given, {
       axisWidth: AXIS_WIDTH,
       from: from,
       to: to,
-      eventColors: eventColorsFor(given.eventLabels || [], given.colorOf),
+      dateSpace: dateWidth + AXIS_LABEL_GAP,
+      // Wide enough on the right for half of the last date, which sits at the end of
+      // the scale once a period is long enough for half a day to be nothing.
+      padding: [PLOT_PADDING[0], Math.max(PLOT_PADDING[1], Math.ceil(dateWidth / 2) + 6),
+        PLOT_PADDING[2], PLOT_PADDING[3]],
+      eventColors: given.eventColors || eventColorsFor(given.eventLabels || [], given.colorOf),
     });
     container.style.setProperty("--plot-axis", AXIS_WIDTH + "px");
     const built = [];

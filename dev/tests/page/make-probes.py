@@ -38,6 +38,11 @@ window.addEventListener("load", function () {
   input.dispatchEvent(new Event("change"));
 
   function loaded() {
+    // Not merely "the page has stopped saying Reading": between the folder being
+    // handed over and the first file being opened it has not started saying it yet,
+    // and a probe that begins clicking in that moment finds no calendar to click.
+    if (document.getElementById("loading-dialog").open) { return false; }
+    if (!document.querySelector(".calendar-day.has-data")) { return false; }
     return document.getElementById("folder-status").textContent.indexOf("Reading") !== 0;
   }
   function drawn() {
@@ -46,7 +51,7 @@ window.addEventListener("load", function () {
   }
   var tries = 0;
   (function step() {
-    if (++tries > 6000) { document.title = "GAVE UP " + document.getElementById("summary-body").textContent.slice(0, 80); return; }
+    if (++tries > 12000) { document.title = "GAVE UP " + document.getElementById("summary-body").textContent.slice(0, 80); return; }
     if (!loaded()) { setTimeout(step, 25); return; }
     if (CLICKS.length) {
       CLICKS.forEach(function (iso) {
@@ -86,7 +91,19 @@ window.addEventListener("load", function () {
             cardPosition: getComputedStyle(card).position
           };
         })(),
-        pickerHidden: document.getElementById("plot-picker").hidden,
+        // Every hover band over a chart's row names: its words, its size, and whether
+        // the pointer would actually reach it. A band of no size carries a title that
+        // nothing can ever show, which is how this broke the first time.
+        hoverBands: (function () {
+          var out = [];
+          document.querySelectorAll(".name-hovers span").forEach(function (s) {
+            var b = s.getBoundingClientRect();
+            var hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+            out.push([s.title, Math.round(b.width), Math.round(b.height), hit === s]);
+          });
+          return out;
+        })(),
+        pickerHidden: document.getElementById("plot-choose").hidden,
         problems: window.papvaultProblems,
         markupAnywhere: document.querySelectorAll("#summary-body script, #plots-body script, #summary-plots script").length
       });

@@ -95,9 +95,13 @@ Nothing is uploaded, because there is nowhere to upload it to. PAPvault opens th
 
 **The window your browser opens at step 2 is the browser's own, and it will probably say "upload".** Firefox and Chrome both use that word for letting a page open a folder, and they ask you to confirm it; they use the same words whether the page sends the folder somewhere or, as here, reads it where it sits. No page can change what they say. If you would rather not see it, drag the folder onto the box instead -- that skips the browser's window entirely.
 
+**A large folder takes a while**, and a box says so from the moment you press **Read Data** until the reading is done. Part of that wait is your browser's own: after you choose a folder it lists everything in it before PAPvault hears about it at all, and on a card holding years of nights that alone can take a noticeable moment. The box is up across the whole of it, and counts the files off once the reading starts. Nothing is being sent anywhere during any of it -- the time goes on opening and reading the files where they sit. It closes itself when the reading is done, and also if you close your browser's folder window without choosing anything.
+
 PAPvault then tells you what it found: how many sessions are on the card, which nights they fall on, and the first and last recording. The calendar marks every day the card holds a recording for, and opens on the most recent one.
 
 **Previous day** and **Next day**, above the calendar's grid, step between the nights your card holds rather than between calendar dates, so they never land on a night with nothing on it. They go dead at the first and last night on the card, and each step selects that one night on its own, clearing any range you had.
+
+The arrows beside the month name, and the month picker you get by clicking the month name itself, move the calendar without touching what you have selected. So you can go looking for a night in another month, or another year, and what is on screen stays as it was until you pick a day.
 
 Pick one day and you get that night in detail. Pick a range and you get a figure per night across it.
 
@@ -125,19 +129,27 @@ Every time shown is the time your machine recorded. Machines keep their own cloc
 
 **The page is three columns on a wide screen.** The summary is on the left and the calendar on the right, and both stay where they are while the plots in the middle scroll. The bar along the top stays as well, so the folder, the calendar, this manual and the light and dark themes are one click away however far down you have gone. On a narrower screen the three stack, and narrower still the calendar moves into a dialog you open from the top bar.
 
-**The summary card describes whatever period you picked**, one night or a hundred. Pressure gives its highest, lowest, mean, median and 95th percentile; leak gives the same four, and then how long it ran above zero. The session box says how many sessions there were, how long the machine ran in total, and when the first began and the last ended; over a period it also gives the average per day, across the days that hold a recording. Under them is a bar for each kind of event, showing how many of each, with the most frequent at the top.
+**The summary card describes whatever period you picked**, one night or a hundred. Pressure gives its highest, lowest, mean, median and 95th percentile; leak gives the same four, and then how long it ran above zero. The session box says how many sessions there were, how long the machine ran in total, when the first began and the last ended, and **Events/hr**; over a period it also gives the average per day, across the days that hold a recording. Under them is a bar for each kind of event, showing how many of each, with the most frequent at the top.
 
 Those figures are arithmetic over what your machine recorded, and nothing more. There is no score, no band, no target line and no verdict. Hours come from when each session started and stopped, never from counting rows.
+
+**Events/hr is every event your machine wrote, over the hours it ran.** All of them, whatever they are called: an arousal counts as one, a Cheyne-Stokes period counts as one, an apnea counts as one. PAPvault has no opinion about which kinds matter, so it does not leave any out, and the bar chart below is there to show you what the number is made of.
+
+**It is not your machine's AHI, and the two will not agree.** An apnea-hypopnea index counts apneas and hypopneas and nothing else, over a period your machine decides. This counts everything on the card. If you want the figure your machine reports, read it on your machine: PAPvault shows what was recorded and does not recompute what the device already declares.
 
 **Dur. in the leak box is how long the leak rate was above zero**, in minutes. Your machine writes that rate every couple of seconds, and each reading above zero stands for the one step of recording it covers, so a leak lasting a single reading counts as one step. Over a single night that is the night's own total. Over a longer period the row reads **Dur./day** and gives the average across the nights that hold a recording, counted the same way as the "Across" figure in the session box, so a night with no recording does not drag it down.
 
 PAPvault sets no threshold of its own. It has no view on what counts as a large leak, only on what the machine wrote, so this is time above zero and not time in trouble. A leak is never carried across the gap between two sessions, since nothing was recorded there.
 
+**Leak is shown in liters per minute.** Machines do not agree on which unit to write it in, and a rate per second is a small number that is hard to read against. So where your machine recorded the leak in liters per second, PAPvault multiplies by 60 and labels it per minute; where your machine already wrote liters per minute, the number is untouched. Which one your card holds is read from the file itself, never assumed. This is the one place PAPvault changes a number before showing it to you, and it changes only its scale: sixty times a rate per second is the same rate per minute.
+
+**Respiratory rate is headed "breaths/min", whatever your card calls it.** The file format your machine writes gives a unit only eight characters, so there is no room for "breaths/min" and machines write "bpm" instead -- which everywhere else means beats per minute, a heart rate. It is not one. PAPvault spells it out. Nothing but the wording changes: the numbers are your machine's own.
+
 **The plots card in the middle shows one night or many.** Pick one night and it shows that night in detail. Pick a range and it shows a chart per figure instead, with a point or a bar for every night: hours used, how many sessions, events per hour, and the same pressure and leak figures.
 
 **A night with none of an event counts zero, not nothing.** If your machine named a kind of event on any night in the period you picked, every other night in that period shows zero of it rather than a gap. A gap would read as "not known"; zero is what was recorded.
 
-**A single night is drawn as a stack of plots on one time axis**: flow, pressure, leak rate, respiratory rate, flow limitation, snore, tidal volume and minute ventilation. Check and uncheck them at the top of the card; the page remembers what you chose.
+**A single night is drawn as a stack of plots on one time axis**: flow, pressure, leak rate, respiratory rate, flow limitation, snore, tidal volume and minute ventilation. **Choose Plots**, at the top of the card, opens the list to check and uncheck; the page remembers what you chose. Turning one on or off redraws the stack from what is already in hand, so it does not read your card again -- unless you turn on a plot whose signal has not been read yet, which is the one case where a file is opened.
 
 **Oximetry is turned off in this version, and no oximetry file is opened.** ResMed records it only on the AirSense 10, and an oximeter it will work with is hard to come by, so there has been no card to test the reading against. Rather than show a figure nobody has checked, PAPvault leaves it alone until there is one. Nothing about it decides anything else either: how long a night lasted is measured from the flow and the pressure, never from an oximeter.
 
@@ -145,9 +157,47 @@ PAPvault sets no threshold of its own. It has no view on what counts as a large 
 
 **Events keep the words your machine wrote.** The strip at the top of the stack gives each event name its own row and its own color, and the same color marks that event across every plot below, as a line at the moment it began with its duration shaded behind. The **Legend** button in the bottom right corner lists every name with its color and how many there were, and stays within reach however far down the plots you have scrolled.
 
-PAPvault never renames an event, never merges two names into one kind, and never decides that one matters more than another. **The colors are labels and nothing else** -- the name your machine wrote most often in the period you picked takes the first color, the next most the second, and so on, so the same name can take a different color when you pick a different period. Nothing is meant by one name getting one color and another a different one.
+**On a ResMed card those words are** `Arousal`, `Apnea`, `Central Apnea`, `Hypopnea`, `Obstructive Apnea`, `CSR Start` and `CSR End`. They come from the card, not from PAPvault, so a machine that writes something else shows something else and is read exactly the same way. Nothing here is a list PAPvault checks against.
 
-**The event colors are chosen to work if you are color blind.** They are Okabe and Ito's Color Universal Design set, drawn up so that people with the common kinds of color blindness can still tell them apart. The set was made for one background and this page has two, so neither theme uses the set's black, and the two hand out the remaining seven in a different order, each leading with the ones that read against its own surface; an event may therefore be a different color in one theme than the other. Beyond seven names the colors start again from the first.
+**Five of them are drawn short, because a row label has little room.** Where a name would crowd out the bars beside it, PAPvault draws a short form and keeps the words for the **Legend**, where hovering a row shows what it stands for:
+
+| Drawn | Stands for |
+|---|---|
+| `Ar` | Arousal |
+| `OA` | Obstructive Apnea |
+| `CA` | Central Apnea |
+| `HA` | Hypopnea |
+| `A` | Apnea (Other) |
+| `CSR` | Cheyne-Stokes |
+
+A name PAPvault has no short form for -- anything else your machine writes, in any language -- is drawn in full, exactly as it came off the card. And the short form is only ever what is *drawn*: events are counted, colored and grouped by the word your machine wrote.
+
+**What any of them means is your machine's business, not this page's.** PAPvault does not define an apnea or a hypopnea, holds no rule of its own about what counts as one, and never checks whether your machine was right to call one. Every event you see is what the machine reported, in the machine's own words, at the time the machine put on it. What your device counted, and why, is in your device's documentation and with the people who prescribed it.
+
+**`CSR Start` and `CSR End` are drawn as one event, lasting from the first to the second.** Your machine writes a mark where a stretch of Cheyne-Stokes respiration begins and another where it ends, and what it is reporting is the time between them rather than two separate moments. So PAPvault shows one event spanning that time, named `CSR`, and a night with four such stretches counts four -- not eight, and not two rows of four. Nothing is lost: both marks are still in your file, and the period drawn begins and ends exactly where they do.
+
+Where one of the pair is missing -- a stretch still running when the recording stopped, or an end with no beginning before it -- the mark is left alone and shown as your machine wrote it. PAPvault will not guess where a period began or ended.
+
+PAPvault never renames an event, never merges two names into one kind, and never decides that one matters more than another. **The colors are labels and nothing else.** Nothing is meant by one name getting one color and another a different one, and a color says nothing about whether an event matters.
+
+**Every name on your card gets its color when the card is opened, and keeps it.** Not per night and not per period: the moment you open a folder, PAPvault reads through it, collects every event name anywhere on it, and gives each one a color. So a name is the same color on every night, in both themes, and whatever range you pick.
+
+**The rows are in the same order every time, too.** The strip above the plots lists them in a fixed order, so a row is in the same place tonight as it was last night and two nights can be read against each other. The five names below come first, in this order, and anything else your machine writes follows them:
+
+| Row | Color |
+|---|---|
+| `CSR` | reddish purple |
+| `OA` | bluish green |
+| `HA` | orange |
+| `CA` | blue |
+| `A` | vermilion |
+| `Ar` | sky blue |
+
+**A name you have none of tonight still gets its row, and its row is empty.** That is the point of fixing the order: an event that happens on one night in fifty is not something you should have to notice the absence of. A name that appears nowhere on your card gets no row at all, so a machine that never writes `CSR` never grows a `CSR` row.
+
+**In the summary card the bars run longest first instead**, since there the question is which happened most. A name with none in the period you picked still gets its bar, showing zero.
+
+**The event colors are chosen to work if you are color blind.** They are Okabe and Ito's Color Universal Design set, drawn up so that people with the common kinds of color blindness can still tell them apart. The set was made for one background and this page has two, so neither theme uses the set's black; the remaining seven are used in both, which is why an event is the same color whichever theme you are in. Beyond seven names on one card the colors start again from the first.
 
 Even so, **color is not how an event is identified here.** The strip names every row in the machine's own words, and the Legend lists every name against its color. If two colors look alike to you, the names are what to read.
 

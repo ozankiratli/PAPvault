@@ -22,6 +22,12 @@ var PAPvaultCard = (function () {
   // the exact text, which a device set to another language would not write.
   const RECORDING_MARKERS = ["Recording starts", "Recording stops", "Recording ends"];
 
+  // Two annotations that mark the two ends of one period, and the name the period
+  // carries. The machine reports the time it saw the pattern rather than two moments,
+  // so the pair is how a file writes one span, and the page draws one event across it.
+  // Matched on the exact text a device set to another language would not write.
+  const SPAN_EVENTS = [{ from: "CSR Start", to: "CSR End", text: "CSR" }];
+
   // A CPAP day runs from 6:00 on its date to 6:00 on the next calendar day. Every
   // other part of the page takes the boundary from here.
   const DAY_START_HOUR = 6;
@@ -45,10 +51,10 @@ var PAPvaultCard = (function () {
     { key: "maskPressure", kind: "PLD", name: "Mask Pressure", labels: ["MaskPress.2s", "Mask Pres"] },
     { key: "pressure", kind: "PLD", name: "Pressure", labels: ["Press.2s", "Therapy Pres"] },
     { key: "eprPressure", kind: "PLD", name: "EPR Pressure", labels: ["EprPress.2s", "EPRPress.2s", "Exp Pres"] },
-    { key: "leak", kind: "PLD", name: "Leak", labels: ["Leak.2s", "Leak", "Leck", "Fuites", "Fuite", "Fuga", "Lekk"] },
-    { key: "respRate", kind: "PLD", name: "Respiratory Rate", labels: ["RespRate.2s", "RR", "AF", "FR"] },
+    { key: "leak", kind: "PLD", name: "Leak", perMinute: true, labels: ["Leak.2s", "Leak", "Leck", "Fuites", "Fuite", "Fuga", "Lekk"] },
+    { key: "respRate", kind: "PLD", name: "Respiratory Rate", breaths: true, labels: ["RespRate.2s", "RR", "AF", "FR"] },
     { key: "minVent", kind: "PLD", name: "Minute Ventilation", labels: ["MinVent.2s", "MV", "VM"] },
-    { key: "tidVol", kind: "PLD", name: "Tidal Volume", labels: ["TidVol.2s", "Vt", "VC"] },
+    { key: "tidVol", kind: "PLD", name: "Tidal Volume", milliliters: true, labels: ["TidVol.2s", "Vt", "VC"] },
     { key: "snore", kind: "PLD", name: "Snore", labels: ["Snore.2s", "Snore"] },
     { key: "flowLim", kind: "PLD", name: "Flow Limitation", labels: ["FlowLim.2s", "FFL Index"] },
     { key: "pulse", kind: "SAD", name: "Pulse", labels: ["Pulse.1s", "Pulse", "Puls", "Pouls", "Pols", "Nabiz"] },
@@ -302,6 +308,48 @@ var PAPvaultCard = (function () {
     return kinds;
   }
 
+  // A unit written as liters per second, in the spellings a header may carry.
+  const PER_SECOND = /^l\s*[\/p]?\s*(s|sec|second|sek)$/i;
+
+  // EDF gives a signal's physical dimension eight bytes, so "breaths/min" cannot be
+  // written in a header and a device writes "bpm", which reads as beats per minute.
+  // A signal marked breaths is spelled out; only the spelling changes.
+  const BREATHS = new Map([["bpm", "breaths/min"], ["1/min", "breaths/min"],
+    ["b/min", "breaths/min"], ["br/min", "breaths/min"]]);
+
+  function spelledOut(unit) {
+    return BREATHS.get(String(unit).trim().toLowerCase()) || unit;
+  }
+
+  // A unit written as liters, in the spellings a header may carry.
+  const LITERS = /^(l|lt|liter|litre|liters|litres)$/i;
+
+  function scaledBy(factor, unit, values) {
+    const scaled = new Float64Array(values.length);
+    for (let i = 0; i < values.length; i++) {
+      scaled[i] = values[i] * factor;
+    }
+    return { unit: unit, values: scaled };
+  }
+
+  // What a signal is shown in, which is not always what its file wrote it in. Each
+  // rule reads the file's own unit and converts only from the one it names, so a file
+  // already written in the unit shown is left alone. Nothing here changes a value's
+  // meaning; a scale and a spelling are all that move.
+  function asShown(wanted, unit, values) {
+    const written = String(unit).trim();
+    if (wanted.perMinute && PER_SECOND.test(written)) {
+      return scaledBy(60, "L/min", values);
+    }
+    if (wanted.milliliters && LITERS.test(written)) {
+      return scaledBy(1000, "mL", values);
+    }
+    if (wanted.breaths) {
+      return { unit: spelledOut(unit), values: values };
+    }
+    return { unit: unit, values: values };
+  }
+
   // A signal carried on across another file of the same kind. One session can hold
   // several recordings, and each writes its own file for the same signal; the files
   // are loaded in time order, so their samples follow one another.
@@ -321,6 +369,27 @@ var PAPvaultCard = (function () {
       x: x,
       y: y,
     };
+  }
+
+  // Every event name anywhere on the card, in the order the sessions were read. The
+  // annotation files are the small ones, so they are all opened when the card is
+  // read rather than a name being discovered on whichever night happens to hold it.
+  async function eventNames(sessions, onProgress) {
+    const seen = [];
+    let done = 0;
+    for (const session of sessions) {
+      const loaded = await load(session, []);
+      for (const event of loaded.events) {
+        if (seen.indexOf(event.text) === -1) {
+          seen.push(event.text);
+        }
+      }
+      done += 1;
+      if (onProgress) {
+        onProgress(done, sessions.length);
+      }
+    }
+    return seen;
   }
 
   // One session's data: only the signals asked for, so a file no plot needs is
@@ -381,7 +450,9 @@ var PAPvaultCard = (function () {
           continue;
         }
         try {
-          const values = PAPvaultEDF.readSignal(buffer, held.header, signal);
+          const read = PAPvaultEDF.readSignal(buffer, held.header, signal);
+          const shown = asShown(wanted, signal.unit, read);
+          const values = shown.values;
           const interval = PAPvaultEDF.intervalOf(held.header, signal);
           const from = held.header.start.getTime() / 1000;
           const times = new Float64Array(values.length);
@@ -393,7 +464,7 @@ var PAPvaultCard = (function () {
             key: key,
             name: wanted.name,
             label: signal.label,
-            unit: signal.unit,
+            unit: shown.unit,
             interval: interval,
             x: times,
             y: values,
@@ -412,12 +483,66 @@ var PAPvaultCard = (function () {
     out.events.sort(function (a, b) {
       return a.seconds - b.seconds;
     });
+    out.events = foldSpans(out.events);
+    return out;
+  }
+
+  // Each pair of marks becomes one event lasting from the first to the second. A mark
+  // whose partner is missing -- a period still open when the recording stopped, or an
+  // end with nothing before it -- is left exactly as the file wrote it, because the
+  // alternative is inventing where it began or ended.
+  function foldSpans(events) {
+    const opens = new Map();
+    const closes = new Map();
+    for (const span of SPAN_EVENTS) {
+      opens.set(span.from, span);
+      closes.set(span.to, span);
+    }
+    const out = [];
+    const waiting = new Map();
+    for (const event of events) {
+      const opening = opens.get(event.text);
+      if (opening) {
+        if (waiting.has(opening.text)) {
+          out.push(waiting.get(opening.text));
+        }
+        waiting.set(opening.text, event);
+        continue;
+      }
+      const closing = closes.get(event.text);
+      if (!closing) {
+        out.push(event);
+        continue;
+      }
+      const opened = waiting.get(closing.text);
+      if (!opened) {
+        out.push(event);
+        continue;
+      }
+      waiting.delete(closing.text);
+      out.push({
+        text: closing.text,
+        start: opened.start,
+        seconds: opened.seconds,
+        duration: Math.max(0, event.seconds - opened.seconds),
+        kind: opened.kind,
+        // The words the file actually carried, kept so nothing the device wrote is lost.
+        wrote: [opened.text, event.text],
+      });
+    }
+    for (const unclosed of waiting.values()) {
+      out.push(unclosed);
+    }
+    out.sort(function (a, b) {
+      return a.seconds - b.seconds;
+    });
     return out;
   }
 
   return {
     read: read,
     load: load,
+    eventNames: eventNames,
     byDay: byDay,
     cpapDayOf: cpapDayOf,
     cpapDayStart: cpapDayStart,

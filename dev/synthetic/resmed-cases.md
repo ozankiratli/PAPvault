@@ -16,7 +16,7 @@
 
 | Case | What it exercises |
 |---|---|
-| `plain-night` | one session, all five kinds of file, a handful of events at known times |
+| `plain-night` | one session, all five kinds of file, a handful of events at known times, and a Cheyne-Stokes period written the way a device writes one: a `CSR Start` and a `CSR End` in the `CSL` file, ten minutes apart. A correct reader draws them as **one** event lasting those ten minutes (Z, 2026-09-22), so `answer.json` carries the annotations as written and, separately, the events the page must show |
 | `two-sessions` | a mask-off break: two sessions in one night, in one day folder |
 | `after-midnight` | a session starting after midnight, filed in the *next* day's folder on purpose, so the answer proves the folder decides nothing |
 | `crosses-the-cut` | a session running from before 6 in the morning to well after it. Its whole data belongs to the day it began in |
@@ -24,6 +24,7 @@
 | `empty-day` | a day folder with no files, and a gap of several days between two nights |
 | `no-oximeter` | no `SAD` files, so the reader must cope with a kind that is missing |
 | `five-days` | five CPAP days in a row, for a range selection and its summaries. The nights differ in start and length; one has no oximetry; one day holds two sessions, the second of which starts after midnight and is filed under the day before |
+| `on-and-off-leak` | one session whose leak goes on and off, so the time it ran above zero is not the time the machine ran. **Asked for by Z on 2026-09-21.** Every other case carries a leak that never reaches zero, so their total is bound to equal the recorded time and a reader that ignored every value would pass. This one holds several runs above zero, of different lengths and different levels, separated by runs at zero of different lengths. One run is at half a liter a minute, which counts, since PAPvault sets no threshold of its own; one reaches the end of the recording, where there is no sample after it; and the night begins at zero. The total in `answer.json` follows the rule Z set on 2026-09-20 -- a run lasts from the sample before it to the sample after it, less one step, which comes to its own samples times the step between them -- and it is a little over a third of the recorded time, so a reader returning the running time is wrong by a figure nobody has to squint at |
 | `other-labels` | the short and translated label forms of `dev/formats/resmed.md`, including one with bytes outside ASCII. The reader reports which signals it did not find rather than guessing |
 | `lies` | files that do not add up; each is its own card, listed below |
 
@@ -48,6 +49,9 @@ For each case:
 - **each session:** its start, its end, the CPAP day it belongs to, and which kinds of file it has;
 - **each signal:** its label as written, its unit, its sampling interval, how many samples, and its value at a few named times;
 - **each event:** its text, its start and its duration;
+- **how long the leak ran above zero,** per session, in seconds, and for a case built from runs the start and length of each run above zero;
+- **the events a correct reader draws**, which is not one per annotation: a pair of marks bracketing a period is one event spanning it. The answer carries both lists, so the parser can be checked against the file and the page against what it must put on screen;
+- **the unit each signal is shown in**, where that is not the unit its header could spell. EDF gives a unit eight bytes, so a header says `bpm` where the page must say `breaths/min`;
 - **per CPAP day:** which sessions belong to it, and the totals a summary must show;
 - **the identifying marker,** which must appear nowhere in the page;
 - **for `lies`:** what the reader is expected to report, per file.
@@ -67,4 +71,4 @@ So `answer.json` gains these per CPAP day, derived from how each case was built 
 ## Open
 
 - **Which signal each of pressure and leak is taken from** when a session has more than one that could serve, since `Press.2s`, `MaskPress.2s` and `Press.40ms` are all pressures. Named as a gap rather than guessed. **Deferred by Z on 2026-09-21:** *"Currently we are not doing any extra analysis. We just display the data. Maybe for a future release we might. Not now."*
-- **A night whose leak goes on and off.** Proposed 2026-09-20, not yet agreed. Z added a figure that day: the total time the leak ran above zero. Both cases in `out/` carry a leak that ramps from 60 to 120 L/min and never reaches zero, so that total is bound to equal the recorded time, and a reader that ignored every value and returned the running time would pass. The case would hold runs above zero separated by runs at zero, several of each and not all the same length, with the total in `answer.json`. Its answer follows the rule Z set the same day: a run lasts from the stamp before it to the stamp after it, less one step, which comes to its own samples times the step between them; and any value above zero counts, since PAPvault sets no threshold of its own.
+- **Nothing.** The leak case that stood here from 2026-09-20 was asked for by Z on 2026-09-21 and is built; it is `on-and-off-leak` in the table above.

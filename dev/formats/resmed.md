@@ -108,6 +108,7 @@ EDF+ adds rules for what those fields hold (R-002, 2.1.3):
 | `CSL` | events | the annotation text, onset and duration (lines 29 to 36) |
 
 Some details of that table:
+- **The words an `EVE` file holds** are `Arousal`, `Apnea`, `Central Apnea`, `Hypopnea`, `Obstructive Apnea`, `CSR Start` and `CSR End` (Z, 2026-09-22). The last two mark where a period of Cheyne-Stokes respiration begins and ends, and they are events like the rest: Z read them as strays at first and corrected it the same day -- *"They are true events: Cheyne-Stokes Respirations. We keep them."* Nothing pairs them, nothing filters them, and no code changed when they were added to this list. Which of `EVE` and `CSL` a device writes them into is not settled here, and a card generated with them has to put them somewhere, so that is a question for the day the sample card is built. No other source in this log gives them: the prototype passes the text through without naming it, and OSCAR displays names of its own, which are not what a device wrote. PAPvault does not use this list -- it shows whatever text a file carries, and a card holding a word that is not here is read exactly the same way. It is here because a card generated for other people to open has to carry words a device would write.
 - **These names are what the prototype looks signals up by.** How each relates to the label bytes in the file is open; see *Open*.
 - **The suffixes `40ms`, `2s` and `1s` are part of the names.** The interval itself comes from each header, as above.
 

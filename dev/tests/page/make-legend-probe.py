@@ -25,7 +25,7 @@ window.addEventListener("load", function () {
   input.dispatchEvent(new Event("change"));
   var tries = 0;
   (function step() {
-    if (++tries > 6000) { document.title = "GAVE UP"; return; }
+    if (++tries > 12000) { document.title = "GAVE UP"; return; }
     if (document.querySelectorAll("#plots-body .uplot").length === 0) { setTimeout(step, 25); return; }
     setTimeout(function () {
       var dock = document.getElementById("legend-dock");
@@ -37,7 +37,8 @@ window.addEventListener("load", function () {
       panel.querySelectorAll("li").forEach(function (li) {
         rows.push([li.children[1].textContent,
                    getComputedStyle(li.children[0]).backgroundColor,
-                   li.children[2].textContent]);
+                   li.children[2].textContent,
+                   li.title]);
       });
       document.title = "LEGEND " + JSON.stringify({
         before: before,

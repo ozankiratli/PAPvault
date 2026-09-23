@@ -49,9 +49,11 @@
       <div id="event-plot"></div>
     </section>
     <section class="card plots-card" aria-labelledby="plots-title">
-      <h2 id="plots-title" class="card-title">Plots</h2>
+      <div class="card-head">
+        <h2 id="plots-title" class="card-title">Plots</h2>
+        <button type="button" id="plot-choose" data-dialog="plots-dialog" hidden>Choose Plots</button>
+      </div>
       <div id="summary-plots"></div>
-      <div class="plot-picker" id="plot-picker" role="group" aria-label="Which plots to show" hidden></div>
       <div id="plots-body"><p class="empty">Plots appear here once data is loaded.</p></div>
     </section>
     <section class="card calendar-card" id="calendar-card" aria-label="Calendar">
@@ -141,6 +143,27 @@
       <div class="manual">
         <!-- manual -->
       </div>
+    </div>
+  </dialog>
+
+  <dialog class="modal" id="plots-dialog" aria-labelledby="plots-dialog-title">
+    <div class="modal-body">
+      <div class="modal-head">
+        <h2 id="plots-dialog-title">Choose Plots</h2>
+        <button type="button" class="modal-close tip" aria-label="Close">&times;</button>
+      </div>
+      <p>Which plots the day's stack shows. What you choose is remembered.</p>
+      <div class="plot-picker" id="plot-picker" role="group" aria-label="Which plots to show"></div>
+    </div>
+  </dialog>
+
+  <!-- No close button: it opens while a folder is being read and closes itself when
+       the reading is done or has failed. -->
+  <dialog class="modal loading-modal" id="loading-dialog" aria-labelledby="loading-dialog-title">
+    <div class="modal-body">
+      <h2 id="loading-dialog-title">Loading...</h2>
+      <p class="note">This can take a while for a large folder. Nothing is being sent anywhere: the files are being read here, in your browser.</p>
+      <p id="loading-progress" class="empty" aria-live="polite"></p>
     </div>
   </dialog>
 

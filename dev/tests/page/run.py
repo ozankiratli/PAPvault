@@ -15,8 +15,10 @@ Nothing here reaches the network, and every browser it starts has a temporary pr
 of its own and is given the page as a file:// URL.
 """
 import argparse
+import datetime
 import html
 import json
+import math
 import pathlib
 import re
 import shutil
@@ -92,11 +94,30 @@ def check_day(report, checks):
                 report["dayCharts"] == 9, report["dayCharts"])
     checks.that("the day view draws no summary chart",
                 report["summaryCharts"] == 0, report["summaryCharts"])
-    checks.that("the plot picker is shown for a single day", report["pickerHidden"] is False)
+    checks.that("the button that chooses plots is shown for a single day",
+                report["pickerHidden"] is False)
     checks.that("the picker does not offer oximetry",
                 not any("Oximetry" in title for title in report["chartTitles"]))
+    # A card writes "bpm" because EDF gives the unit eight bytes; the page spells it.
+    checks.that("the respiratory rate is headed in breaths a minute, not beats",
+                any("breaths/min" in title for title in report["chartTitles"])
+                and not any("(bpm)" in title for title in report["chartTitles"]),
+                report["chartTitles"])
     checks.that("the day's summary names one session",
                 "1 session" in report["summary"], report["summary"][:60])
+    checks.that("the session box gives events an hour",
+                "Events/hr" in report["summary"], report["summary"][:120])
+    # A title on an element of no size is a tooltip nobody can ever open, so size and
+    # reachability are the check, not the attribute.
+    bands = report["hoverBands"]
+    checks.that("both charts of names carry a hover band per row", len(bands) >= 6, len(bands))
+    checks.that("every hover band has room to be pointed at",
+                all(w > 0 and h > 0 for _, w, h, _ in bands), bands)
+    checks.that("every hover band is what the pointer actually lands on",
+                all(reachable for _, _, _, reachable in bands), bands)
+    checks.that("a folded Cheyne-Stokes row says what it stands for",
+                any(title == "Cheyne-Stokes" for title, _, _, _ in bands),
+                [b[0] for b in bands])
     checks.that("every chart in the day stack shares one plotting area",
                 len(report["plotBoxes"]) == 1, report["plotBoxes"])
     checks.that("the bar carries a version", re.search(r"v\d+\.\d+\.\d+", report["summary"]) or True)
@@ -111,7 +132,8 @@ def check_range(report, checks):
     checks.that("a range draws five summary charts",
                 report["summaryCharts"] == 5, report["summaryCharts"])
     checks.that("a range draws no day chart", report["dayCharts"] == 0, report["dayCharts"])
-    checks.that("the plot picker is hidden for a range", report["pickerHidden"] is True)
+    checks.that("the button that chooses plots is hidden for a range",
+                report["pickerHidden"] is True)
     checks.that("the range's summary names six sessions across five days",
                 "6 sessions" in report["summary"] and "5 days" in report["summary"],
                 report["summary"][:80])
@@ -124,25 +146,145 @@ def check_range(report, checks):
     checks.that("nothing from a file became markup", report["markupAnywhere"] == 0)
 
 
-def check_strip(rows, checks):
-    firsts = [row[0] for row in rows]
-    checks.that("every strip row was drawn", all(x is not None for x in firsts), firsts)
-    # The rows are in the order the events were first seen and row 0 is the bottom one,
-    # so the first bar in each row comes earlier as the strip is read downward.
-    checks.rising("the strip's rows are not inverted", firsts)
+def check_leak(report, checks):
+    # Read against the generator's own answer, so the run lengths and levels live in
+    # one place. Every other check of this figure re-implements the rule; this one
+    # reads what the page worked out from the card it was given.
+    answer = json.loads((HERE.parents[2] / "dev/synthetic/out/resmed/on-and-off-leak"
+                         / "answer.json").read_text(encoding="utf-8"))
+    session = answer["sessions"][0]
+    above = session["leak_above_zero_seconds"]
+    runs = session["leak_runs"]
+    night = (datetime.datetime.fromisoformat(session["end"])
+             - datetime.datetime.fromisoformat(session["start"])).total_seconds()
+    rows = report["leak"]
+
+    # The page rounds the duration to the minute, and JavaScript rounds a half upward.
+    def minutes(seconds):
+        return "%dm" % math.floor(seconds / 60 + 0.5)
+
+    checks.that("the leak duration is how long the leak ran above zero",
+                rows.get("Dur.") == minutes(above), rows)
+    checks.that("what it shows is not simply how long the machine ran",
+                rows.get("Dur.") != minutes(night), (rows.get("Dur."), minutes(night)))
+    checks.that("the highest leak shown is the highest run the card holds",
+                rows.get("Max") == "%.1f" % max(run["value"] for run in runs), rows.get("Max"))
+    checks.that("the case still has its leak off for more than half the night",
+                night - above > night / 2, (above, night))
+    checks.that("so the median leak is zero", rows.get("Median") == "0.0", rows.get("Median"))
+    checks.that("the leak box carries the unit the file declares",
+                report["unit"] == "L/min", report["unit"])
+    checks.that("the card the probe loaded is the one night this case builds",
+                report["big"] == ["1 session", "%02dh %02dm" % (night // 3600, night % 3600 // 60)],
+                report["big"])
+    checks.that("nothing threw", report["problems"] == [], report["problems"])
+
+
+def check_month(report, checks):
+    # Moving the calendar to another month changes the calendar and nothing else.
+    checks.that("the calendar moved to another month",
+                report["monthMoved"] != report["monthBefore"],
+                (report["monthBefore"], report["monthMoved"]))
+    checks.that("and back to the one it started on",
+                report["monthAfter"] == report["monthBefore"],
+                (report["monthBefore"], report["monthAfter"]))
+    checks.that("a month with none of the selection in it marks nothing",
+                report["selectedWhileAway"] == [], report["selectedWhileAway"])
+    checks.that("the charts were not thrown away and drawn again",
+                report["chartsKept"] == report["chartsBefore"] == report["chartsAfter"],
+                (report["chartsBefore"], report["chartsAfter"], report["chartsKept"]))
+    checks.that("there were charts to keep in the first place",
+                report["chartsBefore"] > 0, report["chartsBefore"])
+    checks.that("the summary was left as it was", report["summaryUnchanged"] is True)
+    checks.that("the selected days are still selected",
+                report["selectedBefore"] == report["selectedAfter"],
+                (report["selectedBefore"], report["selectedAfter"]))
+    checks.that("the calendar still holds a month of days",
+                28 <= report["dayCells"] <= 31, report["dayCells"])
+    checks.that("nothing threw", report["problems"] == [], report["problems"])
+
+
+def check_toggle(report, checks):
+    checks.that("the toggles are in a dialog of their own", report["pickerInDialog"] is True)
+    checks.that("that dialog starts closed", report["dialogOpenBefore"] is False)
+    checks.that("the button in the plots card opens it",
+                report["dialogOpenAfterClick"] is True)
+    checks.that("it holds one box per plot offered", report["boxes"] == 8, report["boxes"])
+    off = dict(report["steps"]).get("off")
+    on = dict(report["steps"]).get("on")
+    checks.that("turning a plot off takes one chart away",
+                off == report["chartsAtFirst"] - 1, (report["chartsAtFirst"], off))
+    checks.that("turning it back on brings it back",
+                on == report["chartsAtFirst"], (report["chartsAtFirst"], on))
+    # The point of the change. Reading the card once is expected, while the folder is
+    # being opened; a toggle must add nothing to that count.
+    checks.that("neither toggle made the page read the card again",
+                report["readingAfterToggles"] == report["readingBeforeToggle"],
+                (report["readingBeforeToggle"], report["readingAfterToggles"]))
+    checks.that("the loading dialog was up while the folder was being read",
+                report["loadingSeen"] > 0, report["loadingSeen"])
+    # The gap Z reported, which has two halves. The first is the browser's own: its
+    # folder window, and the time it spends listing what was chosen before this page
+    # hears anything. Nothing here can shorten that, so the box goes up before it.
+    checks.that("pressing Read Data asks the browser for its folder window",
+                report["nativePickerAsked"] is True)
+    checks.that("and puts the box up at once",
+                report["loadingOnPick"] is True)
+    checks.that("which says it is waiting rather than loading",
+                "Waiting" in report["headingOnPick"], report["headingOnPick"])
+    checks.that("closing that window without choosing takes the box away",
+                report["loadingAfterCancel"] is False)
+    # The second half is this page's own: turning the browser's file list into its own.
+    checks.that("the box is up before one file has been touched",
+                report["loadingUpBeforeAnyFile"] is True)
+    checks.that("and it says what is happening while that is going on",
+                "folder" in report["statusBeforeAnyFile"].lower(),
+                report["statusBeforeAnyFile"])
+    checks.that("nothing threw", report["problems"] == [], report["problems"])
+
+
+def check_strip(report, checks):
+    rows = report["rows"]
+    # The rows are the card's own list, in the card's own order, each painted in the
+    # colour its name was given when the card was read. Z, 2026-09-22, on why: the
+    # daily view's events "should always be ordered in the same order", so that two
+    # nights can be read against each other.
+    names = [row["name"] for row in rows]
+    checks.that("every strip row has a name", all(n for n in names), names)
+    checks.that("every strip row was drawn",
+                all(row["painted"] for row in rows), [row["painted"] for row in rows])
+    # CSR is the first of the order Z set, and it is vermilion. The card behind this
+    # probe holds one Cheyne-Stokes period and two names PAPvault does not know.
+    checks.that("the row PAPvault knows comes before the ones it does not",
+                names[0] == "Cheyne-Stokes", names)
+    checks.that("and it is painted reddish purple", rows[0]["rgb"] == [204, 121, 167], rows[0]["rgb"])
+    checks.that("the names PAPvault does not know keep the card's order",
+                names[1:] == ["Synthetic event one", "Synthetic event two"], names)
+    # Two rows must never share a colour while the palette has spare entries.
+    painted = [tuple(row["rgb"]) for row in rows if row["rgb"]]
+    checks.that("no two rows are the same colour", len(set(painted)) == len(painted), painted)
+    # A rule at every edge, the outer two included, so the rows are bounded rather
+    # than floating: one more line than there are rows.
+    checks.that("a dotted rule sits at every row edge, top and bottom included",
+                report["ruleLines"] == len(rows) + 1, (report["ruleLines"], len(rows)))
 
 
 def check_events(report, checks):
     rows = report["rows"]
+    legend = report["legend"]
     checks.that("the event chart drew four bars", len(rows) == 4, len(rows))
-    checks.that("the bars run down the page in palette order",
-                [row["color"] for row in rows] == [1, 2, 3, 4], [row["color"] for row in rows])
     checks.rising("the bars run longest to shortest", [row["barEnd"] for row in rows])
+    # A name's colour is its own, settled when the card was read, so the bar and the
+    # legend row for the same name must be painted the same. Both lists run longest
+    # first, so they line up entry for entry.
+    checks.that("each bar is the colour its name was given",
+                [row["rgb"] for row in rows] == [one[3] for one in legend[:len(rows)]],
+                ([row["rgb"] for row in rows], [one[3] for one in legend[:len(rows)]]))
     for row in rows:
-        checks.that("a count starts to the right of its bar, color %d" % row["color"],
+        checks.that("a count starts to the right of its bar, in %s" % row["color"],
                     row["textMin"] is not None and row["textMin"] > row["barEnd"],
                     (row["barEnd"], row["textMin"]))
-        checks.that("a count sits close to its bar, color %d" % row["color"],
+        checks.that("a count sits close to its bar, in %s" % row["color"],
                     row["gap"] is not None and 4 <= row["gap"] <= 14, row["gap"])
     legend = report["legend"]
     checks.that("the legend lists the same four names", len(legend) == 4, len(legend))
@@ -166,6 +308,16 @@ def check_legend(report, checks):
     checks.that("the pick button says Read Data", report["pickButton"] == "Read Data")
     checks.that("every event name has a color",
                 all(row[1].startswith("rgb") for row in report["rows"]), report["rows"])
+    # A pair of marks bracketing a period is drawn as one event, under a short name
+    # with the words it stands for on hover.
+    names = [row[0] for row in report["rows"]]
+    checks.that("the two Cheyne-Stokes marks are one row, not two",
+                names.count("CSR") == 1 and not any("CSR Start" in n for n in names), names)
+    spelled = dict((row[0], row[3]) for row in report["rows"])
+    checks.that("hovering that row says what CSR stands for",
+                spelled.get("CSR") == "Cheyne-Stokes", spelled)
+    checks.that("a name PAPvault has no short form for is drawn as the device wrote it",
+                spelled.get("Synthetic event one") == "Synthetic event one", spelled)
 
 
 def check_manual(report, checks):
@@ -226,6 +378,13 @@ def check_step(report, checks):
     checks.that("the forward button goes dead at the last night",
                 report["forwardButtonDead"] is True)
     checks.that("nothing threw", report["problems"] == [], report["problems"])
+    # The reason the order was fixed at all. Z, 2026-09-22: the daily view's events
+    # "should always be ordered in the same order". Every night of one card must
+    # therefore show the same rows in the same places, however different the nights.
+    seen = [rows for rows in report["rows"] if rows]
+    checks.that("every night of the card shows the same strip rows, in the same order",
+                len(set(seen)) == 1, sorted(set(seen)))
+    checks.that("and there were several nights to compare", len(seen) >= 3, len(seen))
 
 
 # Each entry: the builder beside this file, the page it writes, the word its report
@@ -233,6 +392,9 @@ def check_step(report, checks):
 PROBES = [
     ("make-probes.py", "day", "REPORT", check_day),
     ("make-probes.py", "range", "REPORT", check_range),
+    ("make-leak-probe.py", "leak", "LEAK", check_leak),
+    ("make-month-probe.py", "month", "MONTH", check_month),
+    ("make-toggle-probe.py", "toggle", "TOGGLE", check_toggle),
     ("make-strip-probe.py", "strip", "STRIP", None),
     ("make-events-probe.py", "events", "EVENTS", check_events),
     ("make-wheel-probe.py", "wheel", "WHEEL", check_wheel),
@@ -269,7 +431,7 @@ def main():
             print("  %s" % name)
             title = run_page(browser, profile, workshop / (name + ".html"))
             if name == "strip":
-                check_strip(json.loads(title[title.index("["):]), checks)
+                check_strip(payload(title, "STRIP"), checks)
             else:
                 assertions(payload(title, word), checks)
     finally:

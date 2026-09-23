@@ -29,7 +29,7 @@ window.addEventListener("load", function () {
   input.dispatchEvent(new Event("change"));
   var tries = 0;
   (function step() {
-    if (++tries > 6000) { document.title = "GAVE UP"; return; }
+    if (++tries > 12000) { document.title = "GAVE UP"; return; }
     if (document.querySelectorAll("#plots-body .uplot").length < 3) { setTimeout(step, 25); return; }
     setTimeout(function () {
       var charts = document.querySelectorAll("#plots-body .uplot");

@@ -2,16 +2,19 @@
 //
 //     node dev/tests/cards/derived.js <repo root> <where to build them>
 //
-// Every case in dev/synthetic/out is a night the machine stamped in one go, with its
-// leak never reaching zero. Real cards are not like that, and two rules here have no
-// case that exercises them:
+// Every case in dev/synthetic/out is a night the machine stamped in one go, so one rule
+// here has no committed case that can fail on it:
 //
 //   a session is a stretch of flow      every stamp in the cases is hours from the next
-//   how long the leak ran above zero    the cases' leak never reaches zero at all
 //
 // So this builds cards from the committed ones by moving a file's stamp and its header
-// start together, or by writing physical zero over half a signal, and asserts what the
-// reader must then say. The builders beside this file do the writing.
+// start together, and asserts what the reader must then say. The builders beside this
+// file do the writing.
+//
+// It also writes physical zero over the leak of every second record. That rule does now
+// have a committed case, on-and-off-leak, whose leak goes on and off in runs of minutes;
+// this is the same rule at a finer alternation, half the samples above zero and the
+// switch falling on every record boundary.
 const fs = require("fs");
 const path = require("path");
 const { execFileSync } = require("child_process");
@@ -68,6 +71,7 @@ function build(script, where) {
   build("make-split-cards.js", OUT);
   build("make-stray-card.js", OUT);
   build("make-gappy-leak.js", OUT);
+  build("make-other-units.js", OUT);
 
   // A session is a stretch of flow. The first two move a file that carries no flow, so
   // they must not add a session however far away it is stamped; the third moves a file
@@ -112,6 +116,33 @@ function build(script, where) {
   expect("gappy-leak: half the leak samples are above zero", above, leak.y.length / 2);
   expect("gappy-leak: that is four hours at two seconds a sample",
     above * leak.interval, 4 * 3600);
+
+  // A leak recorded per second is shown per minute, and a tidal volume recorded in
+  // liters is shown in milliliters. The card is on-and-off-leak with three header
+  // fields rewritten per signal and not one data byte touched, so the converted
+  // figures must be the ones the original card gives, and the units must say so.
+  const other = await read(path.join(OUT, "other-units"));
+  const original = await read(path.join(ROOT, "dev/synthetic/out/resmed/on-and-off-leak"));
+  const otherLoaded = await Card.load(other.sessions[0], ["leak", "tidVol"]);
+  const asWrittenLoaded = await Card.load(original.sessions[0], ["leak", "tidVol"]);
+  for (const [key, unit, least] of [["leak", "L/min", 60], ["tidVol", "mL", 1000]]) {
+    const converted = otherLoaded.signals[key];
+    const asWritten = asWrittenLoaded.signals[key];
+    expect("other-units: " + key + " is shown in " + unit, converted.unit, unit);
+    expect("other-units: the card it came from says " + unit + " too", asWritten.unit, unit);
+    expect("other-units: " + key + " keeps its sample count", converted.y.length, asWritten.y.length);
+    let apart = 0;
+    let highest = 0;
+    for (let i = 0; i < converted.y.length; i++) {
+      apart = Math.max(apart, Math.abs(converted.y[i] - asWritten.y[i]));
+      highest = Math.max(highest, converted.y[i]);
+    }
+    expect("other-units: every " + key + " sample lands back on the figure it means",
+      apart < 1e-6, true);
+    // Without the conversion every sample would be low by exactly that factor, so
+    // this is the assertion that fails if the conversion is taken out.
+    expect("other-units: the highest " + key + " is a figure in " + unit, highest > least, true);
+  }
 
   console.log("\n" + checks + " checks, " + bad.length + " failures");
   process.exitCode = bad.length ? 1 : 0;

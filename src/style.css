@@ -29,6 +29,24 @@
   --plot-event-7: #CC79A7;  /* reddish Purple */
   --plot-event: #E69F00;
 
+  /* The same seven again, named rather than numbered, so an event can be given a
+     color instead of a place in a queue. Z assigned the device's own event names to
+     these on 2026-09-22. They are set once rather than per theme: the two themes
+     carry identical values and differ only in the order they hand out the numbered
+     ones, so a named color is the same in both and an event keeps it when the theme
+     changes. */
+  --plot-event-orange: #E69F00;
+  --plot-event-bluish-green: #009E73;
+  --plot-event-blue: #0072B2;
+  --plot-event-vermilion: #D55E00;
+  --plot-event-yellow: #F0E442;
+  --plot-event-sky-blue: #56B4E9;
+  --plot-event-reddish-purple: #CC79A7;
+
+  /* The dotted rule between one event row and the next: dark enough on this surface
+     to be seen at a glance, light enough not to compete with the bars. */
+  --plot-row-line: #b6bfcb;
+
   /* Signal colors: ColorBrewer's Dark2, for the light theme. Each plot draws one
      signal, so these need only be told apart from their own background, not from
      each other; where a plot draws several, they are given different entries.
@@ -75,6 +93,7 @@
   --plot-event-6: #0072B2;  /* Blue */
   --plot-event-7: #D55E00;  /* Vermilion */
   --plot-event: #E69F00;
+  --plot-row-line: #454f5f;
 
   /* Signal colors: ColorBrewer's Set2, the lighter counterpart of Dark2, entry
      for entry, so a signal keeps its place in the scheme when the theme changes. */
@@ -913,4 +932,65 @@ footer a {
 .notice {
   margin: 2rem;
   font-family: system-ui, sans-serif;
+}
+
+/* uPlot paints its axis labels onto the canvas, where there is nothing to hover. One
+   transparent band per row is laid over the axis column so a row name can carry the
+   words its short form stands for. It takes no space and catches no clicks the chart
+   wants: only the pointer resting on it. */
+.name-hovers {
+  position: absolute;
+  pointer-events: none;
+}
+
+.name-hovers span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: block;
+  pointer-events: auto;
+  cursor: help;
+}
+
+/* The plots card's heading and the button that opens its picker, on one line. */
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.card-head .card-title {
+  margin: 0;
+}
+
+/* The picker is in a dialog now, so it lays its choices out in a column rather than
+   squeezing them onto one row of a card. */
+#plots-dialog .plot-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.35rem 1rem;
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+  font-size: 0.9rem;
+}
+
+.loading-modal .modal-body {
+  text-align: center;
+}
+
+.loading-modal h2 {
+  margin: 0 0 0.5rem;
+}
+
+.loading-modal .note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.loading-modal #loading-progress {
+  margin: 0.75rem 0 0;
+  font-variant-numeric: tabular-nums;
 }

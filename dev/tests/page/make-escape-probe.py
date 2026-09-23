@@ -69,7 +69,7 @@ window.addEventListener("load", function () {
 
   var tries = 0;
   (function ready() {
-    if (++tries > 6000) { document.title = "GAVE UP"; return; }
+    if (++tries > 12000) { document.title = "GAVE UP"; return; }
     if (!document.querySelector("#plots-body .uplot")) { setTimeout(ready, 25); return; }
 
     // Something a card actually produced, so an attempt would be carrying real

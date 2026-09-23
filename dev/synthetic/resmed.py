@@ -53,8 +53,8 @@ PLD_SIGNALS = [
     ("Press.2s", "cmH2O", 0.0, 30.0, 30),
     ("EprPress.2s", "cmH2O", 0.0, 30.0, 30),
     ("Leak.2s", "L/min", 0.0, 120.0, 30),
-    ("RespRate.2s", "1/min", 0.0, 60.0, 30),
-    ("TidVol.2s", "L", 0.0, 4.0, 30),
+    ("RespRate.2s", "bpm", 0.0, 60.0, 30),
+    ("TidVol.2s", "mL", 0.0, 4000.0, 30),
     ("MinVent.2s", "L/min", 0.0, 30.0, 30),
     ("Snore.2s", "", 0.0, 5.0, 30),
     ("FlowLim.2s", "", 0.0, 1.0, 30),
@@ -63,6 +63,55 @@ SAD_SIGNALS = [
     ("Pulse.1s", "bpm", 0.0, 200.0, 60),
     ("SpO2.1s", "%", 0.0, 100.0, 60),
 ]
+
+# The signal the leak figures are taken from, which one case builds run by run.
+LEAK_LABEL = "Leak.2s"
+
+# What a reader must show, per signal, where a file cannot spell the unit out. EDF
+# gives the physical dimension eight bytes (dev/formats/resmed.md, R-001), so
+# "breaths/min" does not fit in a header and a device writes "bpm" instead, which
+# reads as beats per minute. Z, 2026-09-22: "bpm is understood as beats per minute.
+# lets change it to breaths/min". Keyed by label and not by unit, because Pulse.1s
+# writes "bpm" as well and there it means exactly what it says. The answer carries
+# both, so the parser can be checked against what the file holds and the page against
+# what it must put on screen.
+SHOWN_UNITS = {"RespRate.2s": "breaths/min"}
+
+# Two annotations a device writes to mark one period, and the one event PAPvault
+# draws across it (Z, 2026-09-22: "Let's convert CSR into a single event line, where
+# it spans the time between its start and end"). The answer carries both what the
+# file holds and what the page must show, so each can be checked against its own.
+SPAN_EVENTS = [("CSR Start", "CSR End", "CSR")]
+
+
+def shown_events(events):
+    """The events a correct reader draws, with each pair of marks folded into one."""
+    opens = {span[0]: span for span in SPAN_EVENTS}
+    closes = {span[1]: span for span in SPAN_EVENTS}
+    out = []
+    waiting = {}
+    for event in sorted(events, key=lambda one: one["start"]):
+        if event["text"] in opens:
+            span = opens[event["text"]]
+            if span[2] in waiting:
+                out.append(waiting.pop(span[2]))
+            waiting[span[2]] = event
+            continue
+        if event["text"] in closes:
+            span = closes[event["text"]]
+            if span[2] not in waiting:
+                out.append(event)
+                continue
+            began = waiting.pop(span[2])
+            start = datetime.datetime.fromisoformat(began["start"])
+            end = datetime.datetime.fromisoformat(event["start"])
+            out.append({"text": span[2], "start": began["start"],
+                        "duration": (end - start).total_seconds()})
+            continue
+        out.append(event)
+    out.extend(waiting.values())
+    return sorted(out, key=lambda one: one["start"])
+
 
 DIGITAL_MIN = -32768
 DIGITAL_MAX = 32767
@@ -92,6 +141,51 @@ def build_signal(label, unit, low, high, per_record, records, kind):
     return signal
 
 
+def build_runs(label, unit, low, high, per_record, records, runs):
+    """A signal held at one value for a run at a time: (how many samples, the value)."""
+    signal = edf.Signal(label, unit, low, high, DIGITAL_MIN, DIGITAL_MAX, per_record, [])
+    samples = []
+    for count, value in runs:
+        samples.extend([signal.to_digital(value)] * count)
+    if len(samples) != per_record * records:
+        raise ValueError(f"{label}: the runs give {len(samples)} samples, "
+                         f"and {records} records hold {per_record * records}")
+    signal.samples = samples
+    return signal
+
+
+def above_zero(signal, runs=None):
+    """How long the signal ran above zero, and each run that did, from where it was built.
+
+    The times follow the rule Z set on 2026-09-20: a run lasts from the sample before
+    it to the sample after it, less one step, which is its own samples times the step.
+    When the runs that built the signal are given, what they asked for and what the
+    calibration could carry must agree, or a run asked for above zero that landed on
+    zero would go unnoticed.
+    """
+    step = RECORD_SECONDS / signal.samples_per_record
+    physical = [signal.to_physical(sample) for sample in signal.samples]
+    counted = sum(1 for value in physical if value > 0)
+    stretches = []
+    at = 0
+    while at < len(physical):
+        end = at
+        while end < len(physical) and (physical[end] > 0) == (physical[at] > 0):
+            end += 1
+        if physical[at] > 0:
+            stretches.append((at * step, (end - at) * step, round(physical[at], 6)))
+        at = end
+    if runs is not None:
+        asked = sum(count for count, value in runs if value > 0)
+        if asked != counted:
+            raise ValueError(f"{signal.label}: {asked} samples were asked for above zero "
+                             f"and {counted} of them are, so a run rounded to zero")
+        if len(stretches) != sum(1 for count, value in runs if value > 0 and count):
+            raise ValueError(f"{signal.label}: two runs above zero were asked for with "
+                             f"nothing between them, so they came out as one")
+    return round(counted * step, 6), stretches
+
+
 # The hour a CPAP day begins on its own date, and so the hour the next day takes over.
 # It was 12 until Z moved it to 6 on 2026-09-19, so that a nap starting after 6 in the
 # morning belongs to that morning's day rather than to the night before. Every case
@@ -110,8 +204,12 @@ def cpap_day(moment):
     return date
 
 
-def session_files(folder, start, minutes, events, csl_events, oximetry=True):
-    """One session: the files a machine would leave for it, and what they hold."""
+def session_files(folder, start, minutes, events, csl_events, oximetry=True, leak_runs=None):
+    """One session: the files a machine would leave for it, and what they hold.
+
+    leak_runs replaces the leak's ramp with runs of one value each, for the case whose
+    leak goes on and off.
+    """
     records = minutes
     stamp = start.strftime("%Y%m%d_%H%M%S")
     written = {}
@@ -121,7 +219,12 @@ def session_files(folder, start, minutes, events, csl_events, oximetry=True):
               patient=PATIENT_FIELD, recording=RECORDING_FIELD)
     written["BRP"] = brp
 
-    pld = [build_signal(*spec, records, "ramp") for spec in PLD_SIGNALS]
+    pld = []
+    for spec in PLD_SIGNALS:
+        if leak_runs is not None and spec[0] == LEAK_LABEL:
+            pld.append(build_runs(*spec, records, leak_runs))
+        else:
+            pld.append(build_signal(*spec, records, "ramp"))
     edf.write(folder / f"{stamp}_PLD.edf", start, RECORD_SECONDS, pld,
               patient=PATIENT_FIELD, recording=RECORDING_FIELD)
     written["PLD"] = pld
@@ -153,17 +256,27 @@ def session_files(folder, start, minutes, events, csl_events, oximetry=True):
         "csl_events": [{"text": t, "start": (start + datetime.timedelta(seconds=o)).isoformat(),
                         "duration": d} for o, t, d in csl_events],
     }
+    answer["shown_events"] = shown_events(answer["events"] + answer["csl_events"])
     for kind, signals in written.items():
         for signal in signals:
             answer["signals"][signal.label] = {
                 "kind": kind,
                 "unit": signal.dimension,
+                "unit_shown": SHOWN_UNITS.get(signal.label, signal.dimension),
                 "seconds_between_samples": RECORD_SECONDS / signal.samples_per_record,
                 "samples": len(signal.samples),
                 "first_value": round(signal.to_physical(signal.samples[0]), 6),
                 "value_at_100th": round(signal.to_physical(signal.samples[99]), 6),
                 "last_value": round(signal.to_physical(signal.samples[-1]), 6),
             }
+
+    leak = next(signal for signal in pld if signal.label == LEAK_LABEL)
+    seconds, stretches = above_zero(leak, leak_runs)
+    answer["leak_above_zero_seconds"] = seconds
+    if leak_runs is not None:
+        answer["leak_runs"] = [
+            {"start": (start + datetime.timedelta(seconds=at)).isoformat(),
+             "seconds": length, "value": value} for at, length, value in stretches]
     return answer
 
 
@@ -186,12 +299,54 @@ def case_plain_night(card):
     start = datetime.datetime(2026, 3, 10, 22, 30, 0)
     folder = card / "DATALOG" / cpap_day(start).strftime("%Y%m%d")
     events = [(600.0, "Synthetic event one", 12.0), (3600.0, "Synthetic event two", 25.5)]
-    csl = [(1800.0, "Synthetic marker start", 0.0), (2400.0, "Synthetic marker end", 0.0)]
+    # A period marked by two annotations, which the page draws as one event spanning
+    # the 600 seconds between them.
+    csl = [(1800.0, "CSR Start", 0.0), (2400.0, "CSR End", 0.0)]
     session = session_files(folder, start, 480, events, csl)
     filler(card, [folder])
     return {
         "case": "plain-night",
         "what_it_exercises": "one session, all five kinds of file, events at known times",
+        "cpap_days": {session["cpap_day"]: [session["start"]]},
+        "sessions": [session],
+        "identifying_marker": MARKER,
+        "files_never_to_open": ["STR.edf", "Journal.dat", "Identification.tgt",
+                                "Identification.crc", "SETTINGS/SET1.tgt", "*.crc"],
+    }
+
+
+# The leak of on-and-off-leak, run by run, as (how long in seconds, L/min). The runs
+# differ in length and in level, so a wrong reading cannot land on the right total; one
+# is low enough to catch a threshold nobody asked for; the night begins at zero; and
+# the last run reaches the end of the recording, where there is no sample after it.
+ON_AND_OFF_LEAK = [
+    (600, 0.0), (300, 30.0), (90, 0.0), (1200, 60.0), (2400, 0.0), (180, 0.5),
+    (1770, 0.0), (4500, 90.0), (60, 0.0), (60, 45.0), (6000, 0.0), (840, 75.0),
+]
+
+
+def case_on_and_off_leak(card):
+    """One night whose leak goes on and off, so its total is not the recorded time."""
+    start = datetime.datetime(2026, 4, 2, 22, 0, 0)
+    folder = card / "DATALOG" / cpap_day(start).strftime("%Y%m%d")
+    events = [(1200.0, "Synthetic event one", 15.0), (9000.0, "Synthetic event two", 22.0)]
+    csl = [(600.0, "Synthetic marker start", 0.0)]
+
+    step = RECORD_SECONDS / dict((spec[0], spec[4]) for spec in PLD_SIGNALS)[LEAK_LABEL]
+    runs = []
+    for seconds, value in ON_AND_OFF_LEAK:
+        if seconds % step:
+            raise ValueError(f"a run of {seconds} seconds is not a whole number of "
+                             f"samples {step} seconds apart")
+        runs.append((int(seconds / step), value))
+
+    session = session_files(folder, start, sum(s for s, _ in ON_AND_OFF_LEAK) // RECORD_SECONDS,
+                            events, csl, leak_runs=runs)
+    filler(card, [folder])
+    return {
+        "case": "on-and-off-leak",
+        "what_it_exercises": "a leak that goes on and off, so the time it ran above zero "
+                             "is not the time the machine ran",
         "cpap_days": {session["cpap_day"]: [session["start"]]},
         "sessions": [session],
         "identifying_marker": MARKER,
@@ -251,6 +406,7 @@ def case_five_days(card):
 
 CASES = {
     "plain-night": case_plain_night,
+    "on-and-off-leak": case_on_and_off_leak,
     "five-days": case_five_days,
 }
 

@@ -43,7 +43,7 @@ window.addEventListener("load", function () {
 
   var back = document.getElementById("day-prev");
   var on = document.getElementById("day-next");
-  var report = { back: [], forward: [], problems: null };
+  var report = { back: [], forward: [], rows: [], problems: null };
 
   function selected() {
     var cell = document.querySelector(".calendar-day.selected");
@@ -63,6 +63,16 @@ window.addEventListener("load", function () {
     })();
   }
 
+  // The names down the day's event strip, top first. They come from the hover bands,
+  // which carry one per row in the order they are drawn.
+  function stripRows() {
+    var out = [];
+    document.querySelectorAll("#plots-body .name-hovers span").forEach(function (s) {
+      out.push(s.title);
+    });
+    return out.join(" | ");
+  }
+
   var steps = 0;
   function walkBack() {
     if (++steps > 40) { document.title = "LOOPED"; return; }
@@ -76,6 +86,7 @@ window.addEventListener("load", function () {
     back.click();
     whenSettled(function () {
       report.back.push([selected(), emptyMessage()]);
+      report.rows.push(stripRows());
       walkBack();
     });
   }
@@ -92,13 +103,20 @@ window.addEventListener("load", function () {
     on.click();
     whenSettled(function () {
       report.forward.push([selected(), emptyMessage()]);
+      report.rows.push(stripRows());
       walkForward();
     });
   }
 
   var tries = 0;
   (function ready() {
-    if (++tries > 6000) { document.title = "GAVE UP"; return; }
+    if (++tries > 12000) { document.title = "GAVE UP"; return; }
+    // A card is loaded when the calendar has days to step between. Waiting merely for
+    // the page to stop saying "Reading" is not enough: it has not started saying it
+    // yet in the moment between the folder being handed over and the first file being
+    // opened, and a walk begun in that moment steps through empty days forever.
+    if (document.getElementById("loading-dialog").open) { setTimeout(ready, 25); return; }
+    if (!document.querySelector(".calendar-day.has-data")) { setTimeout(ready, 25); return; }
     if (document.getElementById("folder-status").textContent.indexOf("Reading") === 0) { setTimeout(ready, 25); return; }
     if (!settled()) { setTimeout(ready, 25); return; }
     report.opensOn = selected();

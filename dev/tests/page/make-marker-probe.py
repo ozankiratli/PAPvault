@@ -56,7 +56,7 @@ window.addEventListener("load", function () {
 
   var tries = 0;
   (function step() {
-    if (++tries > 6000) { document.title = "GAVE UP"; return; }
+    if (++tries > 12000) { document.title = "GAVE UP"; return; }
     if (document.getElementById("folder-status").textContent.indexOf("Reading") === 0) { setTimeout(step, 25); return; }
     if (!document.querySelector("#plots-body .uplot")) { setTimeout(step, 25); return; }
 

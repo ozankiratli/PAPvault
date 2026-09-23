@@ -80,6 +80,10 @@
   const eventPlot = document.getElementById("event-plot");
   const plotsBody = document.getElementById("plots-body");
   const plotPicker = document.getElementById("plot-picker");
+  const plotChoose = document.getElementById("plot-choose");
+  const loadingDialog = document.getElementById("loading-dialog");
+  const loadingProgress = document.getElementById("loading-progress");
+  const loadingTitle = document.getElementById("loading-dialog-title");
   const legendDock = document.getElementById("legend-dock");
   const legendPanel = document.getElementById("legend-panel");
   const legendList = document.getElementById("legend-list");
@@ -122,6 +126,12 @@
   // What reading the chosen folder found, and its sessions keyed by CPAP day.
   let card = null;
   let daysWithData = new Map();
+
+  // What has already been read for the sessions on screen, and which signals of each.
+  // Choosing another plot then costs a redraw rather than reading the same files
+  // again, and a signal no chart has asked for yet is still never opened.
+  let loadedFor = new Map();
+  let loadedSelection = null;
 
   // The drawn charts, and a token that abandons a draw whose selection has moved on.
   let dayView = null;
@@ -286,6 +296,104 @@
     return getComputedStyle(root).getPropertyValue(name).trim();
   }
 
+  // The short form each event name is drawn as, and the words it stands for. A name
+  // that is not here is drawn exactly as the device wrote it, so a device that writes
+  // something else, or writes in another language, is never relabeled into silence.
+  // The text a card carries stays the identity throughout: it is what events are
+  // counted, colored and grouped by, and only what is drawn changes.
+  const EVENT_NAMES = new Map([
+    ["Arousal", ["Ar", "Arousal"]],
+    ["Obstructive Apnea", ["OA", "Obstructive Apnea"]],
+    ["Central Apnea", ["CA", "Central Apnea"]],
+    ["Hypopnea", ["HA", "Hypopnea"]],
+    ["Apnea", ["A", "Apnea (Other)"]],
+    ["CSR", ["CSR", "Cheyne-Stokes"]],
+  ]);
+
+  // The color each of the device's own event names takes, and the order they are
+  // drawn in, both set by Z on 2026-09-22. One map for both, so the order a reader
+  // sees and the color a name carries cannot drift apart. An event keeps its color
+  // whatever period is chosen and whichever theme is on.
+  const EVENT_COLORS = new Map([
+    ["CSR", "--plot-event-reddish-purple"],
+    ["Obstructive Apnea", "--plot-event-bluish-green"],
+    ["Hypopnea", "--plot-event-orange"],
+    ["Central Apnea", "--plot-event-blue"],
+    ["Apnea", "--plot-event-vermilion"],
+    ["Arousal", "--plot-event-sky-blue"],
+  ]);
+
+  // What is left for a name PAPvault does not know, in the order it is handed out.
+  const SPARE_COLORS = ["--plot-event-orange", "--plot-event-bluish-green",
+    "--plot-event-blue", "--plot-event-vermilion", "--plot-event-yellow",
+    "--plot-event-sky-blue", "--plot-event-reddish-purple"];
+
+  // The card's own vocabulary, built once when a card is read: every name anywhere on
+  // it, in the order it is drawn, each holding one color for as long as the card is
+  // open. Z, 2026-09-22: "From each machine when the card is read, we create a full
+  // list of events. Each of these events are assigned to a color at that point." So a
+  // night with none of an event still shows its row at zero, and an event that happens
+  // on one night of a hundred is never missed for being absent from tonight.
+  let cardEvents = [];
+  let cardEventColors = new Map();
+
+  function vocabularyOf(found) {
+    const known = [];
+    for (const name of EVENT_COLORS.keys()) {
+      if (found.indexOf(name) !== -1) {
+        known.push(name);
+      }
+    }
+    const rest = found.filter(function (name) {
+      return !EVENT_COLORS.has(name);
+    });
+    return known.concat(rest);
+  }
+
+  function colorsFor(names) {
+    const taken = new Map();
+    const used = [];
+    for (const name of names) {
+      if (EVENT_COLORS.has(name)) {
+        taken.set(name, EVENT_COLORS.get(name));
+        used.push(EVENT_COLORS.get(name));
+      }
+    }
+    // A name PAPvault does not know takes a color no known name on this card holds,
+    // so two rows are never the same color until the palette runs out.
+    const spare = SPARE_COLORS.filter(function (one) {
+      return used.indexOf(one) === -1;
+    });
+    let at = 0;
+    for (const name of names) {
+      if (!taken.has(name)) {
+        const pool = spare.length ? spare : SPARE_COLORS;
+        taken.set(name, pool[at % pool.length]);
+        at += 1;
+      }
+    }
+    return taken;
+  }
+
+  // A name's color now, read through the theme in force.
+  function eventColorMap(names) {
+    const out = new Map();
+    for (const name of names) {
+      out.set(name, colorOf(cardEventColors.get(name) || "--plot-event"));
+    }
+    return out;
+  }
+
+  function labelOf(text) {
+    const known = EVENT_NAMES.get(text);
+    return known ? known[0] : text;
+  }
+
+  function spellOf(text) {
+    const known = EVENT_NAMES.get(text);
+    return known ? known[1] : text;
+  }
+
   // The day's own axis and its cursor readout, to the second: zoomed in far enough,
   // every tick otherwise names the same minute.
   function formatClock(seconds) {
@@ -294,7 +402,7 @@
 
   function formatDay(seconds) {
     const when = new Date(seconds * 1000);
-    return MONTHS[when.getMonth()].slice(0, 3) + " " + when.getDate();
+    return MONTHS[when.getMonth()].slice(0, 3) + " " + when.getDate() + ", " + when.getFullYear();
   }
 
   function quantile(sorted, fraction) {
@@ -396,14 +504,18 @@
       return;
     }
     // The same map the plots use, so a name's color here is its color there.
-    const colors = PAPvaultPlots.eventColorsFor(labels, colorOf);
+    const colors = eventColorMap(labels);
     const rows = labels.map(function (text) {
       const row = document.createElement("li");
       const swatch = document.createElement("span");
       swatch.className = "legend-swatch";
       swatch.style.background = colors.get(text);
       const name = document.createElement("span");
-      name.textContent = text;
+      name.textContent = labelOf(text);
+      // What the short form stands for, on hover and to a screen reader. Where the
+      // device's own word is already what is drawn, both say the same thing.
+      row.title = spellOf(text);
+      name.setAttribute("aria-label", spellOf(text));
       const many = document.createElement("span");
       many.className = "legend-count";
       many.textContent = counts.get(text) === undefined ? "" : String(counts.get(text));
@@ -446,7 +558,7 @@
   // day needs no waveform, so no waveform file is opened for one.
   async function renderPeriod() {
     clearViews();
-    plotPicker.hidden = true;
+    plotChoose.hidden = true;
 
     if (!card) {
       summaryBody.replaceChildren(line("empty", "No data loaded."));
@@ -468,16 +580,48 @@
     });
 
     const mine = ++drawToken;
-    summaryBody.replaceChildren(line(null, "Reading " + (sessions.length === 1
-      ? "1 session" : sessions.length + " sessions") + "..."));
-    plotsBody.replaceChildren(line("empty", "Reading..."));
+
+    // The cache is this selection's. Another selection reads its own files.
+    const selection = dayKey(start) + ".." + dayKey(end);
+    if (selection !== loadedSelection) {
+      loadedFor = new Map();
+      loadedSelection = selection;
+    }
+    const toRead = sessions.filter(function (session) {
+      const already = loadedFor.get(session);
+      return !already || wanted.some(function (key) {
+        return already.keys.indexOf(key) === -1;
+      });
+    });
+    // Said only when there is something to read, so choosing a plot that is already
+    // in hand does not blank the page to announce work it is not doing.
+    if (toRead.length) {
+      summaryBody.replaceChildren(line(null, "Reading " + (sessions.length === 1
+        ? "1 session" : sessions.length + " sessions") + "..."));
+      plotsBody.replaceChildren(line("empty", "Reading..."));
+    }
 
     const held = [];
     for (const session of sessions) {
-      const loaded = await PAPvaultCard.load(session, wanted);
+      const already = loadedFor.get(session);
+      const missing = already ? wanted.filter(function (key) {
+        return already.keys.indexOf(key) === -1;
+      }) : wanted;
+      if (already && !missing.length) {
+        held.push({ session: session, loaded: already.loaded });
+        continue;
+      }
+      const fresh = await PAPvaultCard.load(session, missing);
       if (mine !== drawToken) {
         return;
       }
+      const loaded = already ? {
+        signals: Object.assign({}, already.loaded.signals, fresh.signals),
+        events: fresh.events,
+        missing: already.loaded.missing.concat(fresh.missing),
+        refused: already.loaded.refused.concat(fresh.refused),
+      } : fresh;
+      loadedFor.set(session, { loaded: loaded, keys: (already ? already.keys : []).concat(missing) });
       held.push({ session: session, loaded: loaded });
     }
 
@@ -506,9 +650,10 @@
       return a.seconds - b.seconds;
     });
 
-    // A name the machine wrote on any day of the period counts zero on the days it
-    // wrote none, rather than leaving a gap that reads as nothing being known.
-    const named = [];
+    // Every name the card holds, whether or not this period holds any of them, so a
+    // day with none of an event counts zero rather than leaving a gap that reads as
+    // nothing being known, and the rows stay in their places from night to night.
+    const named = cardEvents.slice();
     for (const event of events) {
       if (named.indexOf(event.text) === -1) {
         named.push(event.text);
@@ -529,17 +674,23 @@
     // written first. Everything that shows an event reads its order from here: the
     // summary's bars, the legend, the per-hour chart, and which color a name gets.
     const counts = new Map();
-    for (const event of events) {
-      counts.set(event.text, (counts.get(event.text) || 0) + 1);
+    for (const text of named) {
+      counts.set(text, 0);
     }
-    const labels = named.slice().sort(function (a, b) {
-      // A tie keeps the order the device wrote the names in.
+    for (const event of events) {
+      counts.set(event.text, counts.get(event.text) + 1);
+    }
+    // The summary's bars run longest to shortest, and a name with none in this period
+    // keeps its row and shows its zero. A tie keeps the card's own order.
+    const ranked = named.slice().sort(function (a, b) {
       return counts.get(b) - counts.get(a) || named.indexOf(a) - named.indexOf(b);
     });
 
-    drawSummary(held, figures, labels, counts, oneDay, figuresFor(start, held));
+    drawSummary(held, figures, ranked, counts, oneDay, figuresFor(start, held));
     if (oneDay) {
-      drawDay(held, events, labels);
+      // The day's strip keeps the card's order, so a row is in the same place every
+      // night and two nights can be read against each other.
+      drawDay(held, events, named);
     } else {
       plotsBody.replaceChildren(
         line("empty", "The detailed plots show one day at a time. This period covers "
@@ -611,7 +762,20 @@
   const LEAK_DURATION = ["Dur.", "total"];
   const LEAK_DURATION_DAILY = ["Dur./day", "total"];
 
-  function sessionBox(held, used, days, day) {
+  // Every event the device wrote in the period, over the hours the machine ran. The
+  // device's own words are not read: an event counts as one whatever it is called.
+  function eventsPerHour(counts, used) {
+    if (used <= 0) {
+      return null;
+    }
+    let all = 0;
+    for (const count of counts.values()) {
+      all += count;
+    }
+    return all / (used / 3600000);
+  }
+
+  function sessionBox(held, used, days, day, counts) {
     const box = boxOf("session", days > 1 ? "Sessions" : "Session");
     const grid = document.createElement("div");
     grid.className = "figure-pair";
@@ -623,14 +787,16 @@
     spent.textContent = clockSpan(used);
     grid.append(counted, spent);
     box.append(grid);
+    const perHour = eventsPerHour(counts, used);
+    const rate = [["Events/hr", perHour === null ? "--" : perHour.toFixed(1)]];
     return pairsInto(box, days > 1
       ? [["Across", days + " days"],
-         ["Per day", clockSpan(used / days)],
-         ["From", dayKey(held[0].session.start)],
-         ["To", dayKey(held[held.length - 1].session.end)]]
-      : [["Day", dayKey(day)],
-         ["From", clockTime(held[0].session.start)],
-         ["To", clockTime(held[held.length - 1].session.end)]]);
+         ["Per day", clockSpan(used / days)]].concat(rate,
+        [["From", dayKey(held[0].session.start)],
+         ["To", dayKey(held[held.length - 1].session.end)]])
+      : [["Day", dayKey(day)]].concat(rate,
+        [["From", clockTime(held[0].session.start)],
+         ["To", clockTime(held[held.length - 1].session.end)]]));
   }
 
   // One day gives its figures in words and its events as a bar each. A longer
@@ -643,7 +809,7 @@
     const boxes = document.createElement("div");
     boxes.className = "figures";
     boxes.append(
-      sessionBox(held, used, figures.length, start),
+      sessionBox(held, used, figures.length, start, counts),
       spreadBox("pressure", "Pressure", whole.pressure, unitOf(held, "pressure"), PRESSURE_ROWS),
       spreadBox("leak", "Leak", whole.leak, unitOf(held, "leak"),
         LEAK_ROWS.concat([figures.length > 1 ? LEAK_DURATION_DAILY : LEAK_DURATION]),
@@ -657,6 +823,9 @@
       eventLabels: labels,
       counts: counts,
       colorOf: colorOf,
+      labelOf: labelOf,
+      eventColors: eventColorMap(labels),
+      spellOf: spellOf,
     });
     if (!eventView) {
       eventPlot.hidden = true;
@@ -678,6 +847,9 @@
       to: figures[figures.length - 1].seconds,
       formatDate: formatDay,
       colorOf: colorOf,
+      labelOf: labelOf,
+      eventColors: eventColorMap(labels),
+      spellOf: spellOf,
     });
   }
 
@@ -685,9 +857,9 @@
     const from = held[0].session.start.getTime() / 1000;
     const to = held[held.length - 1].session.end.getTime() / 1000;
     plotsBody.replaceChildren();
-    plotPicker.hidden = false;
+    plotChoose.hidden = false;
     if (!chosenCharts.length) {
-      plotsBody.replaceChildren(line("empty", "No plots are chosen. Pick one above."));
+      plotsBody.replaceChildren(line("empty", "No plots are chosen. Open Choose Plots and pick one."));
       return;
     }
     dayView = PAPvaultPlots.show(plotsBody, {
@@ -701,6 +873,9 @@
       charts: chosenCharts,
       formatTime: formatClock,
       colorOf: colorOf,
+      labelOf: labelOf,
+      eventColors: eventColorMap(labels),
+      spellOf: spellOf,
     });
     if (dayView.missing.length) {
       plotsBody.append(line("empty", "Not on this card: " + dayView.missing.join(", ") + "."));
@@ -711,7 +886,9 @@
       + " plot at once."));
   }
 
-  function render() {
+  // The calendar alone: which month it stands on, which days hold a recording, and
+  // which are selected. It reads the selection but never changes it.
+  function renderCalendar() {
     const focused = grid.contains(document.activeElement) ? document.activeElement.getAttribute("aria-label") : null;
     monthLabel.textContent = MONTHS[shown.getMonth()] + " " + shown.getFullYear();
 
@@ -762,6 +939,10 @@
         again.focus();
       }
     }
+  }
+
+  function render() {
+    renderCalendar();
     renderPeriod();
   }
 
@@ -774,11 +955,11 @@
 
   document.getElementById("calendar-prev").addEventListener("click", function () {
     shown = new Date(shown.getFullYear(), shown.getMonth() - 1, 1);
-    render();
+    renderCalendar();
   });
   document.getElementById("calendar-next").addEventListener("click", function () {
     shown = new Date(shown.getFullYear(), shown.getMonth() + 1, 1);
-    render();
+    renderCalendar();
   });
 
   const monthDialog = document.getElementById("month-dialog");
@@ -799,7 +980,7 @@
       button.addEventListener("click", function () {
         shown = new Date(pickerYear, month, 1);
         monthDialog.close();
-        render();
+        renderCalendar();
       });
       return button;
     });
@@ -828,7 +1009,13 @@
     }
   });
   document.querySelectorAll("dialog.modal").forEach(function (dialog) {
-    dialog.querySelector(".modal-close").addEventListener("click", function () {
+    // A dialog the reader is not meant to dismiss has no close button and no
+    // backdrop click: the loading one closes itself when the reading is over.
+    const close = dialog.querySelector(".modal-close");
+    if (!close) {
+      return;
+    }
+    close.addEventListener("click", function () {
       dialog.close();
     });
     dialog.addEventListener("click", function (event) {
@@ -942,21 +1129,69 @@
     folderStatus.replaceChildren(...said);
   }
 
+  // Reading a large folder takes long enough that the page would otherwise sit there
+  // saying nothing. The dialog goes up before the first file is opened and comes down
+  // however the reading ends.
+  function showLoading(what, heading) {
+    loadingTitle.textContent = heading || "Loading...";
+    loadingProgress.textContent = what || "";
+    if (!loadingDialog.open) {
+      loadingDialog.showModal();
+    }
+  }
+
+  // One frame, then one turn of the event loop: enough for the browser to draw what
+  // was just put on screen before a long stretch of work begins. Without it a dialog
+  // opened and then followed by heavy work appears only once the work is over.
+  function painted() {
+    return new Promise(function (done) {
+      requestAnimationFrame(function () {
+        setTimeout(done, 0);
+      });
+    });
+  }
+
+  function hideLoading() {
+    if (loadingDialog.open) {
+      loadingDialog.close();
+    }
+  }
+
   async function readChosenCard(items) {
     const name = folderNameOf(items);
     folderStatus.replaceChildren(line(null, "Reading..."));
+    showLoading(items.length + " files to look through.");
     try {
       card = await PAPvaultCard.read(items, function (done, total) {
+        showLoading("Reading the recordings: " + done + " of " + total + ".");
         folderStatus.replaceChildren(line(null, "Reading the recordings: " + done + " of " + total + "."));
       });
     } catch (error) {
       card = null;
       daysWithData = new Map();
+      cardEvents = [];
+      cardEventColors = new Map();
+      loadedFor = new Map();
+      loadedSelection = null;
+      hideLoading();
       folderStatus.replaceChildren(line("empty", "That folder could not be read."));
       render();
       return;
     }
     daysWithData = PAPvaultCard.byDay(card.sessions);
+    loadedFor = new Map();
+    loadedSelection = null;
+    // The card's event vocabulary, and each name's color, settled here rather than
+    // per period, so neither moves as a reader steps between nights.
+    folderStatus.replaceChildren(line(null, "Reading the events."));
+    cardEvents = vocabularyOf(await PAPvaultCard.eventNames(card.sessions,
+      function (done, total) {
+        showLoading("Reading the events: " + done + " of " + total + ".");
+        folderStatus.replaceChildren(line(null,
+          "Reading the events: " + done + " of " + total + "."));
+      }));
+    cardEventColors = colorsFor(cardEvents);
+    hideLoading();
     reportCard(name, items.length);
     // Reading is done, so the dialog gets out of the way. It stays open when there
     // was nothing to read, or when a file was refused, since that is what it is
@@ -979,6 +1214,7 @@
   function showChoice(items) {
     chosenFiles = items;
     if (!items.length) {
+      hideLoading();
       folderStatus.replaceChildren(line("empty", "That folder holds no files."));
       return;
     }
@@ -986,10 +1222,24 @@
   }
 
   folderPick.addEventListener("click", function () {
+    // Opened first, while nothing is covering the input: the box that follows is a
+    // modal, and an element under one is inert.
     folderInput.click();
+    showLoading("Your browser is asking which folder to open. After you choose, it "
+      + "lists the folder itself, which can take a while for a large one.",
+      "Waiting for a folder...");
   });
 
-  folderInput.addEventListener("change", function () {
+  // The browser's window was closed without a folder being chosen, so nothing is
+  // coming and the box comes down. Where a browser does not report that, the box
+  // closes on Escape like any other.
+  folderInput.addEventListener("cancel", function () {
+    hideLoading();
+  });
+
+  folderInput.addEventListener("change", async function () {
+    showLoading("Looking through the folder.");
+    await painted();
     const items = Array.prototype.map.call(folderInput.files, function (file) {
       return { file: file, path: file.webkitRelativePath || file.name };
     });
@@ -1044,15 +1294,18 @@
       }
     }
     if (!entries.length) {
+      hideLoading();
       folderStatus.replaceChildren(line("empty", "That drop held no folder this browser can open."));
       return;
     }
     folderStatus.replaceChildren(line(null, "Listing the folder..."));
+    showLoading("Listing the folder.");
     Promise.all(entries.map(function (entry) {
       return collect(entry, "");
     })).then(function (lists) {
       showChoice([].concat.apply([], lists));
     }).catch(function () {
+      hideLoading();
       folderStatus.replaceChildren(line("empty", "That folder could not be listed."));
     });
   });
