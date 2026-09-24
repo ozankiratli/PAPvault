@@ -158,14 +158,29 @@ body {
   letter-spacing: 0.01em;
 }
 
+/* The same drawing as the tab icon, at the size the bar wants: the shackle drawn as
+   a line, the body filled, and the sleeping z's left out of the fill in white. */
 .logo {
-  width: 26px;
-  height: 26px;
-  fill: none;
-  stroke: var(--accent-strong);
-  stroke-width: 1.9;
+  width: 34px;
+  height: 34px;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.logo-shackle {
+  fill: none;
+  stroke: var(--accent-strong);
+  stroke-width: 2.2;
+}
+
+.logo-body {
+  fill: var(--accent-strong);
+}
+
+.logo-sleep {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 1.5;
 }
 
 .topbar-actions {

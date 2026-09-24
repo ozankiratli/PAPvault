@@ -57,6 +57,7 @@ One file per subject, not per source file: the reasoning crosses file boundaries
 | `the-old-interface.md` | the R prototype's template, plots, palette and summary figures, written down so PAPvault's plots are built from a file rather than from the prototype; and what the palette has to become to survive a dark background |
 | `reading-a-card.md` | the EDF reader and the card pipeline: what each decides, the bug the synthetic answers caught, what was checked and how those checks were shown to be able to fail |
 | `drawing-the-plots.md` | the day stack and the summary stack: how they are kept aligned and in step, how the prototype's palette survived a dark theme, and three bugs that only looking at the output found |
+| `gestures-on-a-plot.md` | how a wheel gesture is latched and who owns it, what a trackpad actually sends, why a pinch and a scroll need their own rates, and one annoyance still open with the measurement that would settle it |
 | `drawing-fewer-points.md` | why a night of flow is not drawn a sample at a time, the slicing attempt that broke zooming and what replaced it, and the point and pixel counts either side |
 | `averaging-a-period.md` | what a grouped point means: mean of means, nights dropped rather than counted as zero, sessions counted rather than averaged, every grouping left choosable, and what a bar is drawn against |
 | `the-checks.md` | why there was deliberately no test suite, the day Z judged the page ready and asked for one, what each part of it was built to catch, and the hole that breaking a check revealed |

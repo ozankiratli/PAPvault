@@ -1,3 +1,5 @@
+<img src="logo.svg" alt="" width="96" height="96">
+
 # PAPvault
 
 A single web page for looking at your own PAP therapy data. Your data stays on your computer: the page reads the SD card's folder in your browser, and there is nowhere for it to send anything.

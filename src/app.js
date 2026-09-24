@@ -388,9 +388,9 @@
   // whichever theme is on.
   const EVENT_COLORS = new Map([
     ["CSR", "--plot-event-reddish-purple"],
+    ["Central Apnea", "--plot-event-blue"],
     ["Obstructive Apnea", "--plot-event-bluish-green"],
     ["Hypopnea", "--plot-event-orange"],
-    ["Central Apnea", "--plot-event-blue"],
     ["Apnea", "--plot-event-vermilion"],
     ["Arousal", "--plot-event-sky-blue"],
   ]);

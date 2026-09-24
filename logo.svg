@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="96" height="96" role="img" aria-label="PAPvault">
+  <path d="M8 10V7.4a4 4 0 0 1 8 0V10" fill="none" stroke="#5b8ac9" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="3.2" y="9.8" width="17.6" height="10.6" rx="2.6" fill="#5b8ac9"/>
+  <path d="M6.3 16.6h1.9l-1.9 2h1.9M10.4 15h2.4l-2.4 2.5h2.4M15 13.3h3l-3 3.2h3" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

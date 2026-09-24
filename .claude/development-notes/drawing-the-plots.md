@@ -294,3 +294,13 @@ Z, 2026-09-22: *"From each machine when the card is read, we create a full list 
 So the vocabulary is the card's, not the period's. Every event name anywhere on the card is collected once, when the folder is opened, in the order it will be drawn, and each name takes one color and keeps it for as long as the card is open. Two things follow that a period-by-period list could not give: a night with none of an event still shows its row, at zero, and an event that happens on one night in a hundred is never missed for being absent from the night on screen. One map carries both the order and the color, so what a reader sees in the legend and what a name is drawn in cannot drift apart.
 
 **This reverses the per-theme ordering described above.** That section describes a scheme where each theme handed out its own order, so an event could be one color in the light theme and another in the dark. Under Z's decision a name's color is fixed when the card is read and is the same in both themes, and the named colors in `src/style.css` are therefore set once rather than per theme. The earlier section is left as it was written, which is what these notes are for.
+
+## Central before obstructive, 2026-09-24
+
+*Appended 2026-09-24, against the tree at `65fe575`.*
+
+Z, 2026-09-24: *"Can we move CA over OA in the events plot?"* So the row order is now `CSR`, `CA`, `OA`, `HA`, `A`, `Ar`, where it had been `CSR`, `OA`, `HA`, `CA`, `A`, `Ar` since the order was first set on 2026-09-22.
+
+Only the order moved. One map in `src/app.js` carries both the order and the color, so a name that moves takes its color with it -- central apnea is still blue and obstructive still bluish green -- and every place that lists these names reads that one map, so the strip, the summary bar chart and the Legend moved together without any of them being told.
+
+This is a change of order and nothing else. `CLAUDE.md` forbids renaming a device's events or grouping them into kinds of PAPvault's own; where they sit in a list is a different question, and it is Z's.
