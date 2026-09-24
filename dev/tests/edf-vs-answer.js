@@ -10,10 +10,15 @@ vm.createContext(context);
 vm.runInContext(fs.readFileSync(path.join(ROOT, "src/edf.js"), "utf8"), context);
 const EDF = context.PAPvaultEDF;
 
+// Python writes a fraction of a second as six digits, and writes none at all when
+// there is none. An annotation may sit on half a second, so this has to agree or the
+// comparison fails on the format rather than on the time.
 function localIso(d) {
   const p = (n) => String(n).padStart(2, "0");
+  const ms = d.getMilliseconds();
   return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate())
-    + "T" + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+    + "T" + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds())
+    + (ms ? "." + String(ms * 1000).padStart(6, "0") : "");
 }
 
 function bufferOf(file) {
@@ -60,8 +65,11 @@ for (const caseName of fs.readdirSync(path.join(ROOT, "dev/synthetic/out/resmed"
           if (!got[i]) return;
           expect(kind + " event " + i + " text", got[i].text, e.text);
           expect(kind + " event " + i + " duration", got[i].duration, e.duration);
+          // The parser reads the annotation where the file put it, which is where
+          // the event ended. Turning that into the span the page shows is the card
+          // reader's job, and card-vs-answer.js is what checks it.
           const at = new Date(header.start.getTime() + got[i].onset * 1000);
-          expect(kind + " event " + i + " start", localIso(at), e.start);
+          expect(kind + " event " + i + " stamp", localIso(at), e.stamp);
         });
         continue;
       }

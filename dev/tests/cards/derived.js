@@ -68,6 +68,7 @@ function build(script, where) {
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
 
+  build("make-break-cards.js", OUT);
   build("make-split-cards.js", OUT);
   build("make-stray-card.js", OUT);
   build("make-gappy-leak.js", OUT);
@@ -94,6 +95,36 @@ function build(script, where) {
   expect("stray-set: it was counted as stamped away from any night", stray.asideCount, 1);
   const strayLoaded = await Card.load(night, ["pressure"]);
   expect("stray-set: the night keeps its events", strayLoaded.events.length > 0, true);
+
+  // The break rule, through real files. day-boundary.js drives daysOf() with sessions
+  // it makes up and hands in the flowEnd the rule measures from, so neither the day a
+  // session is read off a card nor where its flow stopped is checked there.
+  const wanted = JSON.parse(fs.readFileSync(path.join(OUT, "break-cards.json"), "utf8"));
+  for (const name of ["bathroom-break", "break-from-flow"]) {
+    const held = await read(path.join(OUT, name));
+    const want = wanted[name];
+    expect(name + ": every session was found", held.sessions.length, want.length);
+    expect(name + ": nothing refused", held.refused.length, 0);
+    for (let i = 0; i < Math.min(held.sessions.length, want.length); i++) {
+      const session = held.sessions[i];
+      expect(name + ": session " + (i + 1) + " starts where it was stamped",
+        session.start.toISOString(), want[i].start);
+      expect(name + ": session " + (i + 1) + " belongs to " + want[i].day
+        + ", because " + want[i].why, session.dayKey, want[i].day);
+    }
+  }
+
+  // And that the shortened flow is what the second card rests on: its files run the
+  // whole session while its flow stops before them. Without that gap both moments
+  // give the same day and the card decides nothing.
+  const fromFlow = await read(path.join(OUT, "break-from-flow"));
+  const shortened = fromFlow.sessions[0];
+  expect("break-from-flow: the flow stops before the files do",
+    shortened.flowEnd < shortened.end, true);
+  expect("break-from-flow: the flow stops " + wanted.flowMinutes + " minutes in",
+    (shortened.flowEnd - shortened.start) / 60000, wanted.flowMinutes);
+  expect("break-from-flow: the files run the whole session",
+    (shortened.end - shortened.start) / 60000, wanted.sessionMinutes);
 
   // Two files of one kind in one session: the second one's samples must be carried on
   // rather than dropped, which is what a machine that pauses for a breath produces.

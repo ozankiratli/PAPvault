@@ -84,6 +84,14 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 
 **Failure:** the preselected day is not the CPAP day containing the current time, so before 6 in the morning it is not yesterday's date, and from 6 onward it is not today's; the first click selects a range rather than that one day at 6:00 to the next day at 6:00; after the second click, the shaded days, the two ends or the day count disagree with the days clicked; the third click does not start over; the range picked in reverse across the month boundary is wrong; the range across the time change shows a day count that is not a whole number or is off by one; the month picker does not move the calendar to the month chosen; or moving the calendar between months redraws the plots or changes the summary.
 
+## `averaging` -- a period averages the nights it holds, and offers every grouping
+
+**Protects:** that an averaged point is the mean of the nights inside it, that nights with no recording are left out rather than counted as zero, that no grouping is ever taken away from you, that a grouped chart draws its first and last bar whole and says which week, month or year each bar is, and that sessions are counted rather than averaged.
+
+**How:** pick a range of a few weeks that has at least one night with no recording in it. The box above the charts should read **Daily**. Note the hours for two or three nights in one week, then switch to **Weekly**: that week's point must be the average of the nights that have a recording, not of seven. Switch to **Monthly** and to **Yearly** and back. Then pick a range of several years, if you have one, and check that **Daily** is still offered and still works, however crowded it looks. At each grouping, look at the two ends of **Hours Used/day** and **Sessions**: every bar is the same width, including the first and the last. Point at a bar and read what it says it is -- a date daily, **Week of 2025/11/10** weekly, **November 2025** monthly, **2025** yearly. Then add up the Sessions bars across a week: they must come to what the session box says for that week, not to an average of its nights.
+
+**Failure:** a grouping missing from the box, or greyed out, at any length of period; a weekly point that is the sum of its nights rather than their average; a week with blank nights reading low, as though the blanks counted as zero; a month whose point does not move when a night in it changes; the box appearing when a single night is selected; the first or last bar of a grouped chart drawn narrower than the rest, as though it were cut down the middle; a grouped chart still calling a point a **Day**; or the Sessions bars of a week averaging out to about one instead of adding up to the week's sessions.
+
 ## `time-format` -- times follow the reader's choice
 
 **Protects:** that every time on the page is shown the way the reader chose, and that the choice lasts.
@@ -157,6 +165,14 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 **How:** open Select Folder and choose a card. Compare what the page reports -- the count of night files, the sessions, the days, the first and last recording -- with what is on the card. On a synthetic case from `dev/synthetic/out/resmed/`, compare with its `answer.json`. Check the calendar's dots against the days in it. Then, with the developer tools open, confirm that a session beginning after midnight is dated to the day before, and that the page reports every file it refused.
 
 **Failure:** a session missing, counted twice, or dated to the wrong CPAP day; a count that disagrees with the card; a dot on a day with no recording, or none on a day with one; a file named in `dev/formats/resmed.md` as never opened appearing anywhere in what the page read; or a malformed file that is read past rather than named and skipped.
+
+## `event-timing` -- an event is shaded where it happened, not after it
+
+**Protects:** that a shaded event covers the moments the machine was describing. Your machine writes an event down once it is over, so its recorded time is the end of it; shading forward from there puts every event one duration late, which at a night's width is invisible and at a minute's width is plainly wrong.
+
+**How:** pick a night with an apnea of ten seconds or more and zoom in until that one event fills a good part of the width. Look at the flow underneath the shading: the flow must stop, or fall away, **inside** the shaded band, not after it ends. Do the same for a hypopnea, where the flow must halve inside the band. Then check a `CSR` period, whose two marks carry no duration: it must still run from its start mark to its end mark.
+
+**Failure:** the flow is normal under the shading and the event is visible just after it; a band that sits entirely to the right of the disturbance it names; or a Cheyne-Stokes period that has moved off its marks.
 
 ## `day-plots` -- one night's plots line up and move together
 

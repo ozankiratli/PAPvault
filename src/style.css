@@ -995,6 +995,24 @@ footer a {
   margin: 0;
 }
 
+.group-by {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.group-by select {
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.15em 0.3em;
+}
+
 #plot-choose {
   font-size: 0.85rem;
   padding: 0.3rem 0.6rem;

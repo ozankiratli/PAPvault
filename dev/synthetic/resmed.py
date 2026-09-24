@@ -221,20 +221,23 @@ def cpap_day(moment):
     return date
 
 
-def session_files(folder, start, minutes, events, csl_events, oximetry=True, leak_runs=None):
+def session_files(folder, start, minutes, events, csl_events, oximetry=True, leak_runs=None,
+                  waveform=True):
     """One session: the files a machine would leave for it, and what they hold.
 
     leak_runs replaces the leak's ramp with runs of one value each, for the case whose
-    leak goes on and off.
+    leak goes on and off. waveform=False leaves out the BRP file, for a case the
+    waveform costs more than it exercises.
     """
     records = minutes
     stamp = start.strftime("%Y%m%d_%H%M%S")
     written = {}
 
-    brp = [build_signal(*spec, records, "sine") for spec in BRP_SIGNALS]
-    edf.write(folder / f"{stamp}_BRP.edf", start, RECORD_SECONDS, brp,
-              patient=PATIENT_FIELD, recording=RECORDING_FIELD)
-    written["BRP"] = brp
+    if waveform:
+        brp = [build_signal(*spec, records, "sine") for spec in BRP_SIGNALS]
+        edf.write(folder / f"{stamp}_BRP.edf", start, RECORD_SECONDS, brp,
+                  patient=PATIENT_FIELD, recording=RECORDING_FIELD)
+        written["BRP"] = brp
 
     pld = []
     for spec in PLD_SIGNALS:
@@ -253,15 +256,28 @@ def session_files(folder, start, minutes, events, csl_events, oximetry=True, lea
         written["SAD"] = sad
 
     edf.write(folder / f"{stamp}_EVE.edf", start, 0,
-              annotations=[edf.Annotation(o, t, d) for o, t, d in events],
+              annotations=stamped(events),
               n_records=1, record_event="Recording starts",
               patient=PATIENT_FIELD, recording=RECORDING_FIELD)
     edf.write(folder / f"{stamp}_CSL.edf", start, 0,
-              annotations=[edf.Annotation(o, t, d) for o, t, d in csl_events],
+              annotations=stamped(csl_events),
               n_records=1, record_event="Recording starts",
               patient=PATIENT_FIELD, recording=RECORDING_FIELD)
 
     return session_answer(start, records, written, events, csl_events, leak_runs)
+
+
+def stamped(events):
+    """The annotations for a list of (onset, text, duration) events.
+
+    A ResMed machine writes an event's annotation when the event has ended rather than
+    when it began, so the onset written into the file is the end of the span. Z
+    confirmed this against a real card on 2026-09-23. The cases here define an event by
+    where it starts, which is what answer.json carries, so the onset is moved to the
+    end here and nowhere else.
+    """
+    return [edf.Annotation(onset + duration, text, duration)
+            for onset, text, duration in events]
 
 
 def session_answer(start, records, written, events, csl_events, leak_runs=None):
@@ -273,9 +289,15 @@ def session_answer(start, records, written, events, csl_events, leak_runs=None):
         "cpap_day": cpap_day(start).isoformat(),
         "kinds": sorted(list(written) + ["EVE", "CSL"]),
         "signals": {},
+        # "start" is where the event began, which is what a reader must show. "stamp"
+        # is where its annotation sits in the file, which is where it ended, and is
+        # what a parser must decode. They differ by the duration, and both are here so
+        # neither check has to work the other one out.
         "events": [{"text": t, "start": (start + datetime.timedelta(seconds=o)).isoformat(),
+                    "stamp": (start + datetime.timedelta(seconds=o + d)).isoformat(),
                     "duration": d} for o, t, d in events],
         "csl_events": [{"text": t, "start": (start + datetime.timedelta(seconds=o)).isoformat(),
+                        "stamp": (start + datetime.timedelta(seconds=o + d)).isoformat(),
                         "duration": d} for o, t, d in csl_events],
     }
     answer["shown_events"] = shown_events(answer["events"] + answer["csl_events"])
@@ -425,6 +447,141 @@ def case_five_days(card):
                                 "Identification.crc", "SETTINGS/SET1.tgt", "*.crc"],
     }
 
+
+# ===== A hundred nights, for the grouped views ==============================
+#
+# The weekly, monthly and yearly views cannot be drawn from a card of five nights in
+# one calendar week: every level above daily collapses to a single point, and a chart
+# of one point cannot show what happens at its ends. This card is a hundred nights
+# over a hundred and five days, crossing a year's end, so each level has points to
+# draw and a boundary to draw them either side of.
+#
+# Everything about a night follows its index in the span, so the card is the same on
+# every run and every figure in it can be worked out from the rules below rather than
+# read back out of the files.
+
+LONG_RANGE_FIRST = datetime.date(2025, 11, 15)
+LONG_RANGE_DAYS = 105
+
+
+def long_range_events(index):
+    """A night's events, from its index: none to three of one name and none to two of
+    the other, so events per hour differs between nights and so between groups."""
+    events = [(600.0 + n * 1800.0, "Synthetic event one", 12.0 + n * 3.0)
+              for n in range(index % 4)]
+    events += [(1200.0 + n * 2400.0, "Synthetic event two", 20.0)
+               for n in range(index % 3)]
+    return sorted(events)
+
+
+def long_range_nights():
+    """Every session of the card, night by night, as (start, minutes, events, markers).
+
+    A day's night is worked out from its index in the span:
+
+    - every twenty-first day holds no recording, which leaves a hundred nights in a
+      hundred and five days, so a group is the mean of the nights it has rather than
+      of the days it spans;
+    - every thirteenth night begins after midnight instead of in the evening. One of
+      them is twenty past midnight on the first of January, whose CPAP day is the
+      thirty-first of December, so a view that grouped by the calendar date would file
+      it in the wrong year and the wrong month;
+    - the night before one of those is short and starts early, so it ends by 11 at
+      night and the night after it begins more than an hour later. Without that the
+      two could fall within the hour that carries a session into the day before, and
+      cpap_day() here answers for one moment and knows nothing of what came before it;
+    - a night of four hours or less every ninth day is followed by a second session,
+      an hour and a quarter after the first ends. That break is longer than the hour
+      the rule allows and the second session still begins before 6, so both belong to
+      the same CPAP day whichever of the two rules decides it. The second session may
+      run past 6, which is where a day's data reaches past its own boundary.
+    """
+    nights = []
+    for index in range(LONG_RANGE_DAYS):
+        if index % 21 == 20:
+            continue
+        day = LONG_RANGE_FIRST + datetime.timedelta(days=index)
+        minutes = 120 + (index * 37) % 181
+        events = long_range_events(index)
+        # Clear of every onset long_range_events uses. Two events at the same second
+        # come out in whatever order each sorter happens to give them, and nobody has
+        # decided which should be first, so no night here puts two there.
+        markers = [(3000.0, "Synthetic marker start", 0.0),
+                   (3300.0, "Synthetic marker end", 0.0)] if index % 17 == 3 else []
+        if index % 13 == 7:
+            start = (datetime.datetime.combine(day + datetime.timedelta(days=1),
+                                               datetime.time(0, 10))
+                     + datetime.timedelta(minutes=(index * 11) % 170))
+            nights.append([(start, minutes, events, markers)])
+            continue
+        if (index + 1) % 13 == 7:
+            nights.append([(datetime.datetime.combine(day, datetime.time(20, 30)),
+                            150, events, markers)])
+            continue
+        start = (datetime.datetime.combine(day, datetime.time(21, 0))
+                 + datetime.timedelta(minutes=(index * 17) % 180))
+        night = [(start, minutes, events, markers)]
+        if index % 9 == 4 and minutes <= 240:
+            night.append((start + datetime.timedelta(minutes=minutes + 75),
+                          60 + (index * 13) % 91,
+                          [(300.0, "Synthetic event one", 10.0)], []))
+        nights.append(night)
+    return nights
+
+
+def group_counts(days):
+    """How many points each grouping must draw over these CPAP days.
+
+    A week begins on a Monday, a month on its first and a year on the first of
+    January, which is where src/app.js puts them.
+    """
+    return {
+        "day": len(days),
+        "week": len({day - datetime.timedelta(days=day.weekday()) for day in days}),
+        "month": len({(day.year, day.month) for day in days}),
+        "year": len({day.year for day in days}),
+    }
+
+
+def case_long_range(card):
+    """A hundred nights across a year's end, for the weekly, monthly and yearly views.
+
+    It carries no BRP and no SAD file, and its nights run two to five hours. A period
+    longer than a day opens no waveform, so leaving them out costs this case nothing
+    and keeps a hundred nights small enough to build in seconds and to carry whole
+    into a probe page.
+    """
+    sessions = []
+    folders = []
+    for night in long_range_nights():
+        for start, minutes, events, markers in night:
+            folder = card / "DATALOG" / cpap_day(start).strftime("%Y%m%d")
+            folders.append(folder)
+            sessions.append(session_files(folder, start, minutes, events, markers,
+                                          oximetry=False, waveform=False))
+
+    days = {}
+    for session in sessions:
+        days.setdefault(session["cpap_day"], []).append(session["start"])
+
+    filler(card, sorted(set(folders)))
+    return {
+        "case": "long-range",
+        "what_it_exercises": "a hundred nights over a hundred and five days, crossing a "
+                             "year's end, so the weekly, monthly and yearly views have "
+                             "points to draw. Five days hold no recording, seven nights "
+                             "begin after midnight and one of those belongs to the year "
+                             "before the date it starts on",
+        "cpap_days": days,
+        # What a grouped chart must draw at each level, counted from the CPAP days the
+        # card was built with.
+        "grouped_points": group_counts(
+            [datetime.date.fromisoformat(day) for day in days]),
+        "sessions": sessions,
+        "identifying_marker": MARKER,
+        "files_never_to_open": ["STR.edf", "Journal.dat", "Identification.tgt",
+                                "Identification.crc", "SETTINGS/SET1.tgt", "*.crc"],
+    }
 
 
 # ===== A night that looks like a night ======================================
@@ -929,11 +1086,11 @@ def realistic_session(folder, night, seed):
 
     events, csl = realistic_events(script)
     edf.write(folder / f"{stamp}_EVE.edf", start, 0,
-              annotations=[edf.Annotation(o, t, d) for o, t, d in events],
+              annotations=stamped(events),
               n_records=1, record_event="Recording starts",
               patient=PATIENT_FIELD, recording=RECORDING_FIELD)
     edf.write(folder / f"{stamp}_CSL.edf", start, 0,
-              annotations=[edf.Annotation(o, t, d) for o, t, d in csl],
+              annotations=stamped(csl),
               n_records=1, record_event="Recording starts",
               patient=PATIENT_FIELD, recording=RECORDING_FIELD)
 
@@ -981,6 +1138,7 @@ CASES = {
     "on-and-off-leak": case_on_and_off_leak,
     "realistic": case_realistic,
     "five-days": case_five_days,
+    "long-range": case_long_range,
 }
 
 

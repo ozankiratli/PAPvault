@@ -453,7 +453,12 @@ var PAPvaultCard = (function () {
             if (RECORDING_MARKERS.indexOf(event.text) !== -1) {
               continue;
             }
-            const at = new Date(held.header.start.getTime() + event.onset * 1000);
+            // The device writes an event's annotation when the event has ended, so
+            // the onset is where the span stops and the span reaches back its own
+            // duration from there. A mark carrying no duration stands at the instant
+            // it names, which the same arithmetic leaves alone.
+            const ended = held.header.start.getTime() + event.onset * 1000;
+            const at = new Date(ended - event.duration * 1000);
             out.events.push({
               text: event.text,
               start: at,

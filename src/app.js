@@ -83,6 +83,8 @@
   const plotChoose = document.getElementById("plot-choose");
   const plotPickerNote = document.getElementById("plot-picker-note");
   const summaryPicker = document.getElementById("summary-picker");
+  const groupBy = document.getElementById("group-by");
+  const groupingPick = document.getElementById("grouping");
   const eventPicker = document.getElementById("event-picker");
   const eventPickerSlot = document.getElementById("event-picker-slot");
   const loadingDialog = document.getElementById("loading-dialog");
@@ -186,7 +188,21 @@
     return DEFAULT_SUMMARIES.slice();
   }
 
+  // How the summary charts group the nights they draw. A day is one point per night;
+  // the rest average the nights inside each calendar week, month or year. Z, 2026-09-23.
+  const GROUPINGS = [
+    { key: "day", name: "Daily" },
+    { key: "week", name: "Weekly" },
+    { key: "month", name: "Monthly" },
+    { key: "year", name: "Yearly" },
+  ];
+
   let chosenSummaries = readSummaryCharts();
+  // The grouping is not remembered between selections: it follows the length of
+  // the period until the reader says otherwise, and a different period is a
+  // different question. "groupedFor" is the selection the current choice answers.
+  let chosenGrouping = "day";
+  let groupedFor = null;
 
   // Which of the card's event names the per-hour chart draws. It is the card's own
   // list, so it is not remembered between cards: every name starts on.
@@ -208,6 +224,17 @@
     });
     label.append(box, document.createTextNode(" " + summary.title));
     summaryPicker.append(label);
+  });
+
+  GROUPINGS.forEach(function (grouping) {
+    const option = document.createElement("option");
+    option.value = grouping.key;
+    option.textContent = grouping.name;
+    groupingPick.append(option);
+  });
+  groupingPick.addEventListener("change", function () {
+    chosenGrouping = groupingPick.value;
+    renderPeriod();
   });
 
   PAPvaultPlots.charts.forEach(function (chart) {
@@ -452,6 +479,23 @@
     return MONTHS[when.getMonth()].slice(0, 3) + " " + when.getDate() + ", " + when.getFullYear();
   }
 
+  // What one point of a summary chart stands for, named the way its grouping names
+  // it. The axis and the cursor readout both take it from here.
+  function formatGroup(seconds) {
+    const when = new Date(seconds * 1000);
+    if (chosenGrouping === "week") {
+      return "Week of " + when.getFullYear()
+        + "/" + pad(when.getMonth() + 1) + "/" + pad(when.getDate());
+    }
+    if (chosenGrouping === "month") {
+      return MONTHS[when.getMonth()] + " " + when.getFullYear();
+    }
+    if (chosenGrouping === "year") {
+      return String(when.getFullYear());
+    }
+    return formatDay(seconds);
+  }
+
   function quantile(sorted, fraction) {
     if (!sorted.length) {
       return null;
@@ -531,6 +575,127 @@
       leak: spreadOf(leaks),
       leakingSeconds: leaking,
     };
+  }
+
+  // The first moment of the week, month or year a night's day belongs to. A week
+  // begins on a Monday.
+  function groupStart(day, grouping) {
+    if (grouping === "week") {
+      const back = (day.getDay() + 6) % 7;
+      return new Date(day.getFullYear(), day.getMonth(), day.getDate() - back);
+    }
+    if (grouping === "month") {
+      return new Date(day.getFullYear(), day.getMonth(), 1);
+    }
+    if (grouping === "year") {
+      return new Date(day.getFullYear(), 0, 1);
+    }
+    return day;
+  }
+
+  // The mean of a figure across the nights in a group. Nights with no recording are
+  // not in the list at all, so nothing has to be skipped: a week of three nights is
+  // the mean of three (Z, 2026-09-23). A figure no night carries stays null rather
+  // than becoming zero, which would read as a measurement.
+  function meanOf(nights, pick) {
+    let total = 0;
+    let counted = 0;
+    for (const night of nights) {
+      const value = pick(night);
+      if (value !== null && value !== undefined && Number.isFinite(value)) {
+        total += value;
+        counted++;
+      }
+    }
+    return counted ? total / counted : null;
+  }
+
+  // A count is added up over a group rather than averaged: a week of three nights
+  // ran the machine as many times as those nights ran it. Z, 2026-09-24.
+  function sumOf(nights, pick) {
+    let total = 0;
+    for (const night of nights) {
+      const value = pick(night);
+      if (Number.isFinite(value)) {
+        total += value;
+      }
+    }
+    return total;
+  }
+
+  function meanSpread(nights, which) {
+    const out = {};
+    for (const figure of ["min", "mean", "median", "p95", "max"]) {
+      out[figure] = meanOf(nights, function (night) {
+        return night[which][figure];
+      });
+    }
+    return out;
+  }
+
+  // One point per group instead of one per night, every figure being the mean of the
+  // nights inside it. The nightly figures are already means, so this is a mean of
+  // means throughout, and the manual says so.
+  function grouped(figures, grouping) {
+    if (grouping === "day" || !figures.length) {
+      return figures;
+    }
+    const buckets = new Map();
+    for (const night of figures) {
+      const at = groupStart(new Date(night.seconds * 1000), grouping);
+      const key = dayKey(at);
+      if (!buckets.has(key)) {
+        buckets.set(key, { at: at, nights: [] });
+      }
+      buckets.get(key).nights.push(night);
+    }
+    const names = new Set();
+    for (const night of figures) {
+      for (const text of Object.keys(night.eventsPerHour)) {
+        names.add(text);
+      }
+    }
+    const out = [];
+    for (const bucket of buckets.values()) {
+      const perHour = {};
+      for (const text of names) {
+        perHour[text] = meanOf(bucket.nights, function (night) {
+          return night.eventsPerHour[text];
+        });
+      }
+      out.push({
+        key: dayKey(bucket.at),
+        seconds: cpapDayStart(bucket.at).getTime() / 1000,
+        nights: bucket.nights.length,
+        hours: meanOf(bucket.nights, function (night) { return night.hours; }),
+        sessions: sumOf(bucket.nights, function (night) { return night.sessions; }),
+        eventsPerHour: perHour,
+        eventCounts: new Map(),
+        pressure: meanSpread(bucket.nights, "pressure"),
+        leak: meanSpread(bucket.nights, "leak"),
+        leakingSeconds: meanOf(bucket.nights, function (night) { return night.leakingSeconds; }),
+      });
+    }
+    out.sort(function (a, b) {
+      return a.seconds - b.seconds;
+    });
+    return out;
+  }
+
+  // What a period of this many nights is grouped by unless the reader says otherwise.
+  // It is a starting point and never a limit: every grouping stays choosable, because
+  // how to look at one's own data is not the page's decision to make (Z, 2026-09-23).
+  function groupingFor(nights) {
+    if (nights > 1400) {
+      return "year";
+    }
+    if (nights > 400) {
+      return "month";
+    }
+    if (nights > 120) {
+      return "week";
+    }
+    return "day";
   }
 
   function unitOf(held, key) {
@@ -889,6 +1054,7 @@
     // A period shows the summary stack, so the dialog offers that stack's choices.
     plotChoose.hidden = false;
     showPickerFor(false);
+    showGroupingFor(false, figures.length);
     if (!chosenSummaries.length) {
       summaryPlots.hidden = true;
       summaryBody.append(line("empty",
@@ -896,17 +1062,21 @@
       return;
     }
     summaryPlots.hidden = false;
+    const points = grouped(figures, chosenGrouping);
     summaryView = PAPvaultPlots.showSummary(summaryPlots, {
       charts: chosenSummaries,
       eventsShown: labels.filter(function (text) {
         return chosenEvents.indexOf(text) !== -1;
       }),
-      days: figures,
+      days: points,
       eventLabels: labels,
       units: { pressure: unitOf(held, "pressure"), leak: unitOf(held, "leak") },
-      from: figures[0].seconds,
-      to: figures[figures.length - 1].seconds,
-      formatDate: formatDay,
+      from: points[0].seconds,
+      to: points[points.length - 1].seconds,
+      formatDate: formatGroup,
+      // What one point is, for the cursor readout. Grouped, the reading itself says
+      // which week, month or year it is, so the name in front of it stays general.
+      dateLabel: chosenGrouping === "day" ? "Day" : "Period",
       colorOf: colorOf,
       labelOf: labelOf,
       eventColors: eventColorMap(labels),
@@ -920,6 +1090,7 @@
     plotsBody.replaceChildren();
     plotChoose.hidden = false;
     showPickerFor(true);
+    showGroupingFor(true, 1);
     if (!chosenCharts.length) {
       plotsBody.replaceChildren(line("empty", "No plots are chosen. Open Choose Plots and pick one."));
       return;
@@ -973,6 +1144,21 @@
 
   // The dialog holds the choices for both views; which ones it shows follows what is
   // on screen, since a day's stack and a period's summaries are different plots.
+  // The control offers every grouping whatever the period, and starts on the one that
+  // suits its length. A period the reader has already chosen a grouping for keeps it.
+  function showGroupingFor(oneDay, nights) {
+    groupBy.hidden = oneDay;
+    if (oneDay) {
+      return;
+    }
+    const selection = dayKey(start) + ".." + dayKey(end);
+    if (groupedFor !== selection) {
+      groupedFor = selection;
+      chosenGrouping = groupingFor(nights);
+    }
+    groupingPick.value = chosenGrouping;
+  }
+
   function showPickerFor(oneDay) {
     plotPicker.hidden = !oneDay;
     summaryPicker.hidden = oneDay;

@@ -41,14 +41,22 @@ def find_browser(named):
     sys.exit("page/run.py: no chromium or chrome on PATH; pass --browser")
 
 
-def run_page(browser, profile, page):
-    """The page's document.title after it has finished, as text."""
+def run_page(browser, profile, page, budget=400000):
+    """The page's document.title after it has finished, as text.
+
+    The budget is virtual milliseconds, not real ones: a timer that is due fires at
+    once and takes its whole delay out of the budget, so a page that polls burns the
+    budget at a rate set by how much real work stands between its polls. A probe that
+    reads a hundred nights gets through far more of it than one reading a single
+    night, and when the budget runs out the browser dumps whatever is on the page --
+    which is a title that was never set rather than any kind of report.
+    """
     if profile.exists():
         shutil.rmtree(profile)
     profile.mkdir(parents=True)
     finished = subprocess.run(
         [browser, "--headless=new", "--user-data-dir=" + str(profile), "--v=0",
-         "--virtual-time-budget=400000", "--window-size=1500,1200",
+         "--virtual-time-budget=%d" % budget, "--window-size=1500,1200",
          "--dump-dom", "file://" + str(page)],
         capture_output=True, text=True, timeout=TIMEOUT,
         env={"PATH": "/usr/bin:/bin:/usr/local/bin", "TZ": "America/New_York",
@@ -193,6 +201,21 @@ def check_range(report, checks):
     checks.that("the session box gives an average per day", "Per day" in report["summary"])
     checks.that("every summary chart shares one plotting area",
                 len(report["plotBoxes"]) == 1, report["plotBoxes"])
+    # Daily, weekly, monthly and yearly. The five nights of this card fall in one
+    # calendar week, so the weekly level is a single point: the mean of the five.
+    g = report["grouping"]
+    checks.that("a period offers every grouping",
+                g and g["offers"] == ["day", "week", "month", "year"], g and g["offers"])
+    checks.that("and starts on daily for a period of five nights",
+                g and g["startsOn"] == "day", g and g["startsOn"])
+    checks.that("daily draws one point per night",
+                g and g["dailyPoints"] == 5, g and g["dailyPoints"])
+    checks.that("weekly draws one point for the week they share",
+                g and g["weeklyPoints"] == 1, g and g["weeklyPoints"])
+    checks.that("and that point is the mean of the nights in it",
+                g and abs(g["weeklyValue"] - g["meanOfNights"]) < 1e-9,
+                g and (g["weeklyValue"], g["meanOfNights"]))
+
     # The summary stack pans the same way a day's does, which the manual promises.
     pan = report["summaryPan"]
     checks.that("a period's stack zooms on Ctrl and the wheel",
@@ -237,6 +260,88 @@ def check_leak(report, checks):
     checks.that("the card the probe loaded is the one night this case builds",
                 report["big"] == ["1 session", "%02dh %02dm" % (night // 3600, night % 3600 // 60)],
                 report["big"])
+    checks.that("nothing threw", report["problems"] == [], report["problems"])
+
+
+# What the page calls each grouping, in the order the control offers them.
+GROUPINGS = {"day": "daily", "week": "weekly", "month": "monthly", "year": "yearly"}
+
+# Spelled out rather than taken from strftime, which follows the machine's locale
+# while the page is in English whatever the machine is set to.
+MONTHS = ("January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December")
+
+
+def readings(first):
+    """What the cursor readout must say for the group the first night falls in.
+
+    A week begins on the Monday, which is where src/app.js puts it.
+    """
+    monday = first - datetime.timedelta(days=first.weekday())
+    return {
+        "day": "%s %d, %d" % (MONTHS[first.month - 1][:3], first.day, first.year),
+        "week": "Week of %04d/%02d/%02d" % (monday.year, monday.month, monday.day),
+        "month": "%s %d" % (MONTHS[first.month - 1], first.year),
+        "year": str(first.year),
+    }
+
+
+def check_grouped(report, checks):
+    # How many points each level must draw is counted from the nights the card was
+    # built with, in the generator, and read from its answer here. Nothing in this
+    # check works it out from what the page did.
+    answer = json.loads((HERE.parents[2] / "dev/synthetic/out/resmed/long-range"
+                         / "answer.json").read_text(encoding="utf-8"))
+    want = answer["grouped_points"]
+    says = readings(datetime.date.fromisoformat(min(answer["cpap_days"])))
+    levels = report["levels"]
+    checks.that("a period of a hundred nights starts on the daily grouping",
+                report["startsOn"] == "day", report["startsOn"])
+    compared = 0
+    for level in ["day", "week", "month", "year"]:
+        found = levels.get(level)
+        checks.that("%s draws one point per group the card holds" % GROUPINGS[level],
+                    found and found["points"] == want[level],
+                    (found and found.get("points"), want[level]))
+        if not found:
+            continue
+        # A session is counted over a group, not averaged, so the same number of
+        # sessions is on the chart however the nights are grouped: the card's own.
+        checks.that("%s counts the card's sessions rather than averaging them"
+                    % GROUPINGS[level],
+                    found["sessionsTotal"] == len(answer["sessions"]),
+                    (found["sessionsTotal"], len(answer["sessions"])))
+        # And what the readout calls a point follows the grouping, since "Day" is
+        # wrong on a chart whose points are weeks.
+        checks.that("%s names a point the way its grouping names it" % GROUPINGS[level],
+                    found["reads"]["label"] == ("Day" if level == "day" else "Period")
+                    and found["reads"]["first"] == says[level],
+                    (found["reads"], says[level]))
+        # A bar is centered on its point and clipped at the edge of the plotting area,
+        # so the scale has to reach half a step past the first and the last point or
+        # those two bars lose the half that falls outside. The step is the closest two
+        # points come, which is what uPlot measures a bar's width against.
+        room = found["room"]
+        checks.that("%s leaves room for the first bar" % GROUPINGS[level],
+                    room["step"] is None or room["before"] >= room["step"] / 2, room)
+        checks.that("%s leaves room for the last bar" % GROUPINGS[level],
+                    room["step"] is None or room["after"] >= room["step"] / 2, room)
+        # And the bars themselves, read off the canvas. This needs a bar that is not
+        # at either end to compare against, so it runs only where there are three.
+        bars = found["bars"]
+        if found["points"] < 3:
+            continue
+        compared += 1
+        checks.that("%s draws its first bar the width of the others" % GROUPINGS[level],
+                    bars["first"] is not None and bars["middle"]
+                    and abs(bars["first"] - bars["middle"]) <= 1, bars)
+        checks.that("%s draws its last bar the width of the others" % GROUPINGS[level],
+                    bars["last"] is not None and bars["middle"]
+                    and abs(bars["last"] - bars["middle"]) <= 1, bars)
+    # The card must stay long enough for the widths above to be compared at more than
+    # the daily level, or those checks quietly stop covering the grouped views.
+    checks.that("the card gives three groupings a bar at neither end to compare with",
+                compared >= 3, compared)
     checks.that("nothing threw", report["problems"] == [], report["problems"])
 
 
@@ -480,6 +585,7 @@ PROBES = [
     ("make-probes.py", "day", "REPORT", check_day),
     ("make-probes.py", "range", "REPORT", check_range),
     ("make-leak-probe.py", "leak", "LEAK", check_leak),
+    ("make-grouped-probe.py", "grouped", "GROUPED", check_grouped),
     ("make-month-probe.py", "month", "MONTH", check_month),
     ("make-toggle-probe.py", "toggle", "TOGGLE", check_toggle),
     ("make-strip-probe.py", "strip", "STRIP", None),
@@ -492,12 +598,17 @@ PROBES = [
     ("make-marker-probe.py", "marker", "MARKER", check_marker),
 ]
 
+# Probes that need more virtual time than the rest, and why. See run_page.
+BUDGETS = {"grouped": 4000000}
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root")
     parser.add_argument("--browser")
     parser.add_argument("--keep", action="store_true", help="leave the probe pages behind")
+    parser.add_argument("--only", action="append", metavar="PROBE",
+                        help="run only these probes, by name; repeatable")
     args = parser.parse_args()
 
     root = pathlib.Path(args.root).resolve()
@@ -510,13 +621,18 @@ def main():
 
     try:
         built = set()
-        for builder, name, word, assertions in PROBES:
+        wanted = [probe for probe in PROBES if not args.only or probe[1] in args.only]
+        missing = set(args.only or []) - {probe[1] for probe in PROBES}
+        if missing:
+            sys.exit("page/run.py: no probe named %s" % ", ".join(sorted(missing)))
+        for builder, name, word, assertions in wanted:
             if builder not in built:
                 subprocess.run([sys.executable, str(HERE / builder), str(root), str(workshop)],
                                check=True, capture_output=True, text=True)
                 built.add(builder)
             print("  %s" % name)
-            title = run_page(browser, profile, workshop / (name + ".html"))
+            title = run_page(browser, profile, workshop / (name + ".html"),
+                             BUDGETS.get(name, 400000))
             if name == "strip":
                 check_strip(payload(title, "STRIP"), checks)
             else:
@@ -527,6 +643,9 @@ def main():
         else:
             shutil.rmtree(workshop, ignore_errors=True)
 
+    if args.only:
+        print("\n  only %s ran, so this is not the page suite"
+              % ", ".join(probe[1] for probe in wanted))
     print("\n%d checks, %d failures" % (checks.done, len(checks.bad)))
     return 1 if checks.bad else 0
 

@@ -143,7 +143,10 @@ What the table establishes, and what it doesn't:
 ## Timing, as Z's design sets it (R-003)
 
 - **Signals:** a sample's time is its file's start time plus the sample's offset in the file. (lines 54, 107 and 131)
-- **Events:** an event starts at its file's start time plus its onset, and ends its duration later. Empty annotations, the time-keeping ones, are dropped. (lines 12 to 14, and 30 to 32)
+- **Events:** an annotation's onset is where the event **ended**, not where it began. The machine scores an event only once it is over -- it cannot know an apnea lasted twelve seconds until twelve seconds have passed -- and writes the annotation at that moment, so the span runs from the onset back by the duration. Empty annotations, the time-keeping ones, are dropped.
+  - **Source: Z, 2026-09-23**, confirmed by eye against a real card after noticing that PAPvault drew every event one duration late.
+  - **The prototype reads it the other way** (lines 12 to 14, and 30 to 32), which is where PAPvault had it from. This is the one place PAPvault does not follow `prepare_data()`, and it is Z's own correction to Z's own code rather than a disagreement with it.
+  - A mark carrying no duration, such as `CSR Start`, stands at the instant it names: the same arithmetic leaves it where it is.
 - **Recording start and stop:** each `BRP`, `PLD` and `SAD` file gives a recording start at its header's start and a recording stop at its end. (lines 60 to 71, 110 and 111, 134 and 135)
 - **Combining signals:** within a file, the prototype joins its signals on their offset. (lines 53, 106 and 130)
 

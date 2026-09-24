@@ -25,9 +25,11 @@ var PAPvaultPlots = (function () {
   const PLOT_PADDING = [10, 18, 9, 0];
   const EVENT_ROW_HEIGHT = 22;
   const EVENT_OPACITY = 0.22;
-  // A band is filled faintly across the plot and edged with a solid line at the
-  // moment the event began, so a short event is still visible at a whole night's
-  // width, where its duration is well under one pixel.
+  // A band is filled faintly across the plot and edged with a solid line at the time
+  // the file recorded, which is where the event ended, so a short event is still
+  // visible at a whole night's width, where its duration is well under one pixel.
+  // Everything is anchored at that line and grows to the left of it, which is where
+  // the event was.
   const EVENT_EDGE = 2;
   const EVENT_LEAST = 3;
   // How far a count starts from the end of its bar.
@@ -280,11 +282,15 @@ var PAPvaultPlots = (function () {
           for (const event of events) {
             const from = u.valToPos(event.seconds, "x", true);
             const to = u.valToPos(event.seconds + Math.max(event.duration, 0), "x", true);
+            // Anchored at "to", the moment the file recorded, so the solid line stays
+            // on that mark and the shading covers the span before it however narrow
+            // the span is drawn.
+            const wide = Math.max(to - from, least);
             ctx.fillStyle = colors.get(event.text) || colorOf("--plot-event");
             ctx.globalAlpha = EVENT_OPACITY;
-            ctx.fillRect(from, u.bbox.top, Math.max(to - from, least), u.bbox.height);
+            ctx.fillRect(to - wide, u.bbox.top, wide, u.bbox.height);
             ctx.globalAlpha = 1;
-            ctx.fillRect(from, u.bbox.top, edge, u.bbox.height);
+            ctx.fillRect(to - edge, u.bbox.top, edge, u.bbox.height);
           }
           ctx.restore();
         }],
@@ -448,8 +454,9 @@ var PAPvaultPlots = (function () {
             // The first name is the top row, so the rows read in the order the card
             // set and a night can be read against the night before it.
             const top = u.bbox.top + row.get(event.text) * height;
+            const wide = Math.max(to - from, least);
             ctx.fillStyle = options.eventColors.get(event.text) || options.colorOf("--plot-event");
-            ctx.fillRect(from, top + height * 0.14, Math.max(to - from, least), height * 0.72);
+            ctx.fillRect(to - wide, top + height * 0.14, wide, height * 0.72);
           }
           ctx.restore();
         }],
@@ -678,9 +685,12 @@ var PAPvaultPlots = (function () {
 
   // One entry per summary chart, in the order they are stacked. Each reads its
   // columns off the per-day figures it is handed.
+  // One line per figure a night carries. The line is the mean rather than the median
+  // because a period longer than a night averages these, and an average of medians is
+  // not a statistic of anything (Z, 2026-09-23).
   const SUMMARIES = [
     {
-      key: "usage", title: "Hours Used", bars: true,
+      key: "usage", title: "Hours Used/day", bars: true,
       series: [{ name: "Hours used", color: "--plot-usage", of: function (day) { return day.hours; } }],
     },
     {
@@ -691,14 +701,14 @@ var PAPvaultPlots = (function () {
     {
       key: "pressure", title: "Pressure",
       series: [
-        { name: "Median", color: "--plot-mask-pressure", of: function (day) { return day.pressure.median; } },
+        { name: "Mean", color: "--plot-mask-pressure", of: function (day) { return day.pressure.mean; } },
         { name: "95th percentile", color: "--plot-mask-pressure", dash: [6, 4], of: function (day) { return day.pressure.p95; } },
       ],
     },
     {
       key: "leak", title: "Leak",
       series: [
-        { name: "Median", color: "--plot-leak", of: function (day) { return day.leak.median; } },
+        { name: "Mean", color: "--plot-leak", of: function (day) { return day.leak.mean; } },
         { name: "95th percentile", color: "--plot-leak", dash: [6, 4], of: function (day) { return day.leak.p95; } },
       ],
     },
@@ -779,7 +789,7 @@ var PAPvaultPlots = (function () {
     holder.className = "plot";
     parent.append(holder);
 
-    const series = [{ label: "Day", value: function (u, raw) {
+    const series = [{ label: options.dateLabel || "Day", value: function (u, raw) {
       return raw === null ? "" : options.formatDate(raw);
     } }];
     specs.forEach(function (spec) {
@@ -928,14 +938,34 @@ var PAPvaultPlots = (function () {
     };
   }
 
-  // The summary stack: one point or bar per CPAP day in the chosen period.
+  // The closest two of these points come, in seconds, or zero for a single point.
+  // It is what uPlot measures a bar's width against, and a month is not a fixed
+  // length, so the mean gap between points is not it.
+  function shortestStep(days) {
+    let step = 0;
+    for (let index = 1; index < days.length; index++) {
+      const gap = days[index].seconds - days[index - 1].seconds;
+      if (!step || gap < step) {
+        step = gap;
+      }
+    }
+    return step;
+  }
+
+  // The summary stack: one point or bar per CPAP day, or per group of them, in the
+  // chosen period.
   function showSummary(container, given) {
     const width = Math.max(container.clientWidth, 320);
-    // Half a day either side, so the first and last bar stand whole inside the
-    // chart, and so one chosen day is a scale with a span rather than a point.
+    // Half a step either side, so the first and last bar stand whole inside the
+    // chart. A bar is centered on its point and clipped at the edge of the plotting
+    // area, so a point on that edge loses the half of its bar that falls outside.
+    // Grouped, the step is a week, a month or a year rather than a day.
     const HALF_DAY = 43200;
-    const from = given.from - HALF_DAY;
-    const to = given.to + HALF_DAY;
+    // A single point has no step, and a day is what it stands for: a scale with a
+    // span rather than a point.
+    const half = shortestStep(given.days) / 2 || HALF_DAY;
+    const from = given.from - half;
+    const to = given.to + half;
     const dateWidth = widestDateLabel(given);
     const options = Object.assign({}, given, {
       axisWidth: AXIS_WIDTH,
@@ -943,7 +973,7 @@ var PAPvaultPlots = (function () {
       to: to,
       dateSpace: dateWidth + AXIS_LABEL_GAP,
       // Wide enough on the right for half of the last date, which sits at the end of
-      // the scale once a period is long enough for half a day to be nothing.
+      // the scale once a period is long enough for half a step to be nothing.
       padding: [PLOT_PADDING[0], Math.max(PLOT_PADDING[1], Math.ceil(dateWidth / 2) + 6),
         PLOT_PADDING[2], PLOT_PADDING[3]],
       eventColors: given.eventColors || eventColorsFor(given.eventLabels || [], given.colorOf),

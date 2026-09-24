@@ -106,6 +106,55 @@ window.addEventListener("load", function () {
     });
   }
 
+  // Every grouping is offered whatever the period, the control starts on the one the
+  // period's length suggests, and a grouped point is the mean of the nights in it.
+  // The hours of the whole period are read at the daily level and again at the weekly
+  // one, where the five nights of this card fall in a single week.
+  function groupingThen(then) {
+    var box = document.getElementById("group-by");
+    var pick = document.getElementById("grouping");
+    if (!box || !pick || box.hidden) { then(null); return; }
+    var offers = [];
+    pick.querySelectorAll("option").forEach(function (o) { offers.push(o.value); });
+    var startsOn = pick.value;
+    function hoursOf() {
+      var found = null;
+      uPlot.sync("papvault-summary").plots.forEach(function (u) {
+        var title = (u.root.querySelector(".u-title") || {}).textContent || "";
+        if (title.indexOf("Hours Used") === 0) { found = u; }
+      });
+      return found ? found.data[1].slice() : [];
+    }
+    function at(level, done) {
+      pick.value = level;
+      pick.dispatchEvent(new Event("change"));
+      setTimeout(function () { done(hoursOf()); }, 500);
+    }
+    at("day", function (daily) {
+      at("week", function (weekly) {
+        var counted = daily.filter(function (v) { return v !== null && v !== undefined; });
+        var mean = counted.reduce(function (s, v) { return s + v; }, 0) / (counted.length || 1);
+        at("day", function () {
+          // A bar is centred on its point, so the range has to reach past the first
+          // and the last of them or both bars are drawn half outside the plot.
+          var u = null;
+          uPlot.sync("papvault-summary").plots.forEach(function (one) {
+            var title = (one.root.querySelector(".u-title") || {}).textContent || "";
+            if (title.indexOf("Hours Used") === 0) { u = one; }
+          });
+          var room = u ? { before: u.data[0][0] - u.scales.x.min,
+                           after: u.scales.x.max - u.data[0][u.data[0].length - 1],
+                           step: (u.data[0][u.data[0].length - 1] - u.data[0][0])
+                                 / Math.max(1, u.data[0].length - 1) } : null;
+          then({ offers: offers, startsOn: startsOn,
+                 dailyPoints: daily.length, weeklyPoints: weekly.length,
+                 meanOfNights: mean, weeklyValue: weekly.length ? weekly[0] : null,
+                 room: room });
+        });
+      });
+    });
+  }
+
   // Ctrl and a drag must slide a zoomed summary stack along, the same as a day's.
   // Only the x scale moves, so nothing else the report measures is disturbed by it.
   // uPlot sets a scale on its own schedule rather than in the handler, so each step
@@ -172,6 +221,7 @@ window.addEventListener("load", function () {
       return;
     }
     setTimeout(function () {
+      groupingThen(function (grouping) {
       summaryPanThen(function (summaryPan) {
       var titles = [];
       document.querySelectorAll(".plot .u-title").forEach(function (t) { titles.push(t.textContent); });
@@ -193,6 +243,7 @@ window.addEventListener("load", function () {
           - (parseFloat(over.style.top) + parseFloat(over.style.height))));
       });
       document.title = "REPORT " + JSON.stringify({
+        grouping: grouping,
         summaryPan: summaryPan,
         roomBelow: roomBelow,
         summary: document.getElementById("summary-body").textContent,
@@ -236,6 +287,7 @@ window.addEventListener("load", function () {
         problems: window.papvaultProblems,
         toggles: window.papvaultToggles || null,
         markupAnywhere: document.querySelectorAll("#summary-body script, #plots-body script, #summary-plots script").length
+      });
       });
       });
     }, 300);

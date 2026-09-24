@@ -116,3 +116,51 @@ Frames were being produced -- a `requestAnimationFrame` loop counting them repor
 The page ended up needing neither: the gesture that wanted coalescing -- a sideways two-finger swipe to slide the window -- was removed the same day, because making `preventDefault` conditional on the direction of each wheel event let Chrome latch the whole gesture to the page. The trap stands on its own all the same, for the next thing that wants a frame. For a chart redraw the two are equivalent -- the point is to stop redrawing ten charts per event, not to align with the compositor -- and only one of them can be driven in a check. **Where a frame and a timer would do the same job, the timer is the one this suite can see.** If a future change genuinely needs frame alignment, the honest thing is to write that the check cannot cover it rather than to keep a check that passes for the wrong reason.
 
 The companion trap is the one above it: a probe that waits with `setTimeout` for work scheduled on a frame reads too early and reports a zero, which looks exactly like a feature that does nothing.
+
+## The clock stops inside a timer under virtual time, 2026-09-23
+
+*Found 2026-09-23.* The entry above records that frames are starved under `--virtual-time-budget`. The clock is worse, and it is the one that silently turns a measurement into a zero.
+
+The same busy loop, timed with `performance.now()` in one page under that flag:
+
+| where the loop runs | reported |
+|---|---:|
+| while the document is parsing | 94 ms |
+| in the `load` handler | 82 ms |
+| **inside a `setTimeout` callback** | **0 ms** |
+| 200 million iterations in a timer | **0 ms** |
+
+`Date.now()` agrees with it. Every probe here does its work inside a timer, which is exactly where the clock is dead, so **nothing in this harness can be timed**. Timing across a `setTimeout` yield gives a constant few milliseconds whatever the workload -- the virtual clock's fixed per-timer jump, not a measurement of anything.
+
+The trap inside the trap: a first attempt to check this ran the loop at parse time, read 157 ms, and concluded the clock was fine. **Calibrate where the work actually runs**, not where it is convenient to measure.
+
+What to do instead: measure work rather than time -- points drawn, calls made, rows compared -- all of which are exact and reproducible here. Where a real millisecond figure is genuinely needed, it takes a browser run without the flag, driven over the DevTools protocol, which is outside what this suite can do with the standard library alone.
+
+## uPlot's setData does not draw, and redraw(false) draws from a stale range, 2026-09-23
+
+*Found 2026-09-23.* Two neighbouring calls in `lib/uplot/uPlot.iife.js`, and getting either wrong renders an empty chart rather than an error.
+
+- `setData(data, false)` -- told to leave the scales alone -- ends at `if (_resetScales !== false) { ... commit(); }`, so **it never draws**. The data is swapped and the canvas is whatever it was.
+- `redraw(false)` calls `commit()` without rebuilding the range of samples to draw, so after a `setData` that changed the array's length it draws from indices into the array that is gone. The chart comes out **blank**.
+- `redraw()` with no argument calls the internal `_setScale` with the current min and max, which is the sequence `setData` itself uses, and is the one that works.
+
+The cost of not knowing this: a check that compared a thinned chart against the same chart with all its data restored reported **zero differing pixels** for both, because the restored side was never drawn. It was declared pixel-identical twice on the strength of it. **A comparison against a reference that was never rendered agrees with everything.**
+
+## A deliberate break that never reached the file, 2026-09-23
+
+*Found 2026-09-23.* Three times in one session a check was "shown to fail" against a build that had not been modified at all.
+
+Twice the cause was shell: a setup function ended with a loop copying synthetic cards, one of which did not exist, so the function returned non-zero and the `&&` that followed it skipped the edit entirely. The edit's own success message never printed, and the suite's green run was read as the break failing to fail. Once the cause was an anchor string that no longer matched.
+
+**Confirm the break is in the built page before running anything.** One `grep -c` against `src` and another against `dist` is the whole of it, and without them a break record in `dev/tests/README.md` is a claim about a run that never happened.
+
+## A give-up counter that outlives the virtual time budget reports nothing at all, 2026-09-24
+
+*Found 2026-09-24.* A new probe reads a hundred nights, and it failed about two runs in three with `expected a GROUPED report, got: PAPvault` -- the page's own title, untouched. That reads as a script that never ran, and it sent me looking at the Content-Security-Policy hash, which was correct all along.
+
+The page was simply still working. Its in-page guard was 24000 polls of 25 milliseconds, which is 600 seconds of virtual time, against the `--virtual-time-budget=400000` the runner gives every probe. **The browser always hit its limit first**, and when the budget runs out it dumps the DOM as it stands -- a title nobody ever set. The GAVE UP path, which exists precisely to say "slow, not broken", could never be reached.
+
+Two things came out of it, and they are the general form:
+
+- **An in-page counter has to be strictly inside the browser's budget**, or it is dead code and every timeout looks like a page that did not load. The budget is now per probe in `dev/tests/page/run.py`, because a probe reading a hundred nights gets through far more of a budget than one reading a single night, and raising it for everyone would hide slowness everywhere else. Raising a budget costs no wall-clock time: an idle page races through what is left of it.
+- **A counter reset inside a retry is not a counter.** The same probe reset `tries` to zero on every pass through its "pick the two days" branch, so a pick that never succeeded looped until the browser stopped the page. Reset it once the thing you were waiting for has happened, and never on the path that is still waiting.
