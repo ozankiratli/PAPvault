@@ -139,6 +139,7 @@ window.addEventListener("load", function () {
                   setTimeout(function () {
                     // The first event of this one is up and down, so the page has the
                     // gesture; a sideways event inside it must not take it back.
+                    var beforeHeld = where();
                     swipe(0, 60);
                     var heldTaken = swipe(90, 0);
                     setTimeout(function () {
@@ -147,6 +148,36 @@ window.addEventListener("load", function () {
                       setTimeout(function () {
                         var unzoomed = where();
                         var unzoomedTaken = swipe(60, 0);
+                        // How far a pinch zooms must follow how far it travelled, not
+                        // how many events it took to get there. One event of twice the
+                        // distance must land on the square of one event's factor; a
+                        // fixed factor per event gives the same number for both.
+                        over.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+                        setTimeout(function () {
+                        var openSpan = spanOf(stack[0]);
+                        wheel(true);
+                        setTimeout(function () {
+                        var oneNotch = spanOf(stack[0]) / openSpan;
+                        over.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+                        setTimeout(function () {
+                        var e = new WheelEvent("wheel", {
+                          deltaY: -240, bubbles: true, cancelable: true, ctrlKey: true,
+                          clientX: box.left + box.width / 2, clientY: box.top + box.height / 2
+                        });
+                        over.dispatchEvent(e);
+                        setTimeout(function () {
+                        var twoNotches = spanOf(stack[0]) / openSpan;
+                        over.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+                        setTimeout(function () {
+                        // A step small enough to be a pinch rather than a notch. One
+                        // event either way, so nothing is waiting on a frame.
+                        var small = new WheelEvent("wheel", {
+                          deltaY: -2, bubbles: true, cancelable: true, ctrlKey: true,
+                          clientX: box.left + box.width / 2, clientY: box.top + box.height / 2
+                        });
+                        over.dispatchEvent(small);
+                        setTimeout(function () {
+                        var smallStep = spanOf(stack[0]) / openSpan;
                         setTimeout(function () {
                           document.title = "WHEEL " + JSON.stringify({
                             swipe: {
@@ -159,11 +190,13 @@ window.addEventListener("load", function () {
                               upDownTaken: upDownTaken,
                               upDownMovedBy: afterUpDown.min - afterSideways.min,
                               heldTaken: heldTaken,
-                              heldMovedBy: afterHeld.min - afterUpDown.min,
+                              heldMovedBy: afterHeld.min - beforeHeld.min,
                               unzoomedTaken: unzoomedTaken,
                               unzoomedSpan: unzoomed.max - unzoomed.min,
                               wholeSpan: whole.max - whole.min
                             },
+                            zoom: { oneNotch: oneNotch, twoNotches: twoNotches,
+                                    smallStep: smallStep },
                             problems: window.papvaultProblems,
                 plainScrollPrevented: plainPrevented,
                 plainChangedChart: afterPlain !== plain,
@@ -180,6 +213,12 @@ window.addEventListener("load", function () {
                             spanBeforeSelect: spanBeforeSelect,
                             spanAfterSelect: spanAfterSelect
                           });
+                        }, 200);
+                        }, 200);
+                        }, 200);
+                        }, 200);
+                        }, 200);
+                        }, 200);
                         }, 200);
                       }, 300);
                     }, 200);

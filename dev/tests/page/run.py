@@ -542,6 +542,20 @@ def check_wheel(report, checks):
                 report["spanAfterSelect"] < report["spanBeforeSelect"],
                 (report["spanBeforeSelect"], report["spanAfterSelect"]))
     check_swipe(report, checks)
+    # How far a pinch zooms follows how far it travelled, not how many events it took.
+    # A trackpad sends a gesture as a couple of hundred small events, so a fixed factor
+    # each made the zoom run away with the length of the pinch rather than its size.
+    zoom = report["zoom"]
+    checks.that("one wheel notch zooms in", 0 < zoom["oneNotch"] < 1, zoom)
+    checks.that("and twice the distance zooms exactly twice as far, not the same",
+                abs(zoom["twoNotches"] - zoom["oneNotch"] ** 2) < 1e-6, zoom)
+    # A trackpad reports a pinch in steps around seven times smaller than a notch, so
+    # a small step buys more zoom per unit than a large one. Read as the rate each
+    # gesture zooms at per unit travelled, which is what the two constants set.
+    byPinch = -math.log2(zoom["smallStep"]) / 2
+    byWheel = -math.log2(zoom["oneNotch"]) / 120
+    checks.that("a step small enough to be a pinch zooms faster per unit than a notch",
+                byPinch > byWheel * 2, (byPinch, byWheel, byPinch / byWheel))
     checks.that("nothing threw", report["problems"] == [], report["problems"])
 
 

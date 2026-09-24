@@ -25,6 +25,17 @@ var PAPvaultPlots = (function () {
   const PLOT_PADDING = [10, 18, 9, 0];
   // A wheel gesture is one run of events; this long without one ends it.
   const GESTURE_GAP = 200;
+  // How far a gesture travels to halve or double the window, in the units a wheel
+  // reports. The zoom follows that distance and not the number of events it arrives
+  // in. A trackpad reports a pinch in steps around seven times smaller than the ones
+  // a wheel notch or a two-finger scroll sends, so the two have their own distances
+  // and a gesture is read as a pinch when its first real step is under PINCH_STEP.
+  const PINCH_TRAVEL = 32;
+  const WHEEL_TRAVEL = 75;
+  const PINCH_STEP = 3;
+  // Below this a step carries no direction worth reading: a trackpad opens every
+  // pinch with a few tenths of a unit before the fingers have moved.
+  const ZOOM_TRACE = 0.5;
   const EVENT_ROW_HEIGHT = 22;
   const EVENT_OPACITY = 0.22;
   // A band is filled faintly across the plot and edged with a solid line at the time
@@ -226,28 +237,31 @@ var PAPvaultPlots = (function () {
 
   // The steps a chart is reduced at, coarsest last. Two points come out of each run
   // of samples, so a step of 8 draws a quarter of them and a step of 512 a 256th.
-  const STEPS = [1, 8, 64, 512];
-  // Below this many samples a chart is drawn whole and no reduction is built.
-  const REDUCE_ABOVE = 20000;
-  // The most points worth drawing across one pixel.
+  // Each step halves the points of the one before it, so whatever is on screen is
+  // drawn from between one and two points per pixel rather than whatever the gaps in
+  // a coarser ladder allowed.
+  const STEPS = [4, 8, 16, 32, 64, 128, 256, 512, 1024];
+  // The most points worth drawing across one pixel. Two of them are one run of
+  // samples, drawn as a stroke from its lowest to its highest.
   const PER_PIXEL = 2;
 
   // One chart at every step that is worth holding: the samples themselves first, then
   // the reductions, each covering the whole period rather than a window of it.
-  function pyramidFor(chart, sessions) {
+  // A level holding fewer points than the plot has room for is never the one chosen:
+  // at the whole period it would be thinner than the chart can use, and any narrower
+  // window needs more points still. So the ladder stops there.
+  function pyramidFor(chart, sessions, room) {
     const whole = columnsFor(chart, sessions, 1);
     if (!whole) {
       return null;
     }
     const levels = [{ step: 1, data: whole.data, points: whole.reach }];
-    if (whole.reach > REDUCE_ABOVE) {
-      for (const step of STEPS) {
-        if (step < 2 || whole.reach / step * 2 < REDUCE_ABOVE / 8) {
-          continue;
-        }
-        const made = columnsFor(chart, sessions, step);
-        levels.push({ step: step, data: made.data, points: made.reach });
+    for (const step of STEPS) {
+      if (whole.reach <= room || Math.floor(whole.reach / step) * 2 < room) {
+        break;
       }
+      const made = columnsFor(chart, sessions, step);
+      levels.push({ step: step, data: made.data, points: made.reach });
     }
     return levels;
   }
@@ -549,7 +563,7 @@ var PAPvaultPlots = (function () {
   }
 
   function buildChart(parent, chart, sessions, options, width, showTimes) {
-    const levels = pyramidFor(chart, sessions);
+    const levels = pyramidFor(chart, sessions, Math.max(width, 1) * PER_PIXEL);
     if (!levels) {
       return null;
     }
@@ -622,19 +636,28 @@ var PAPvaultPlots = (function () {
     if (levels.length < 2) {
       return;
     }
-    const want = levelFor(levels, u.scales.x.max - u.scales.x.min,
-      u.over.clientWidth || u.width);
-    if (want === u.papvaultLevel) {
+    const wide = u.over.clientWidth || u.width;
+    if (levelFor(levels, u.scales.x.max - u.scales.x.min, wide) === u.papvaultLevel) {
       return;
     }
-    u.papvaultLevel = want;
-    Promise.resolve().then(function () {
-      if (u.papvaultLevel !== want || !u.root.isConnected) {
+    // Handing a level over is a setData across the whole of it, which is work in
+    // proportion to its length, and a gesture crosses several levels on its way in.
+    // So the swap waits for the scale to be still, and a gesture that passes through
+    // a level on its way somewhere else never pays for it.
+    clearTimeout(u.papvaultSwap);
+    u.papvaultSwap = setTimeout(function () {
+      if (!u.root.isConnected) {
         return;
       }
+      const want = levelFor(levels, u.scales.x.max - u.scales.x.min,
+        u.over.clientWidth || u.width);
+      if (want === u.papvaultLevel) {
+        return;
+      }
+      u.papvaultLevel = want;
       u.setData(levels[want].data, false);
       u.redraw();
-    });
+    }, GESTURE_GAP);
   }
 
   // One chart's zoom becomes every chart's zoom, and the wheel zooms about the pointer.
@@ -676,29 +699,77 @@ var PAPvaultPlots = (function () {
       // a gap in the events ends the gesture.
       let takes = null;
       let lastWheel = 0;
+      // What the gesture has asked for and not yet been given, and whether a frame is
+      // already on its way. Wheel events arrive several times faster than a stack of
+      // charts is redrawn and nothing throttles them, so they are added up here and
+      // spent once a frame. The first event of a gesture is spent where it lands, so
+      // a swipe answers the moment it starts.
+      let owed = 0;
+      let framed = false;
+      // Seconds per pixel at the width the gesture began with. Reading it once keeps
+      // a layout measurement out of the path every event takes.
+      let perPixel = 0;
+      const spend = function () {
+        const by = owed;
+        owed = 0;
+        if (by) {
+          slide(chart.scales.x.min + by, chart.scales.x.max + by);
+        }
+      };
+      // The same for zooming, which a pinch drives at the same rate. Factors multiply,
+      // so adding the distances up and raising two to the total once is the same
+      // answer as taking each event in turn, and it costs one redraw instead of many.
+      let owedZoom = 0;
+      let zoomedAt = 0;
+      let zoomFramed = false;
+      let zoomTravel = 0;
+      const spendZoom = function () {
+        const by = owedZoom;
+        owedZoom = 0;
+        if (!by) {
+          return;
+        }
+        const box = chart.over.getBoundingClientRect();
+        const at = chart.posToVal(zoomedAt - box.left, "x");
+        const min = chart.scales.x.min;
+        const max = chart.scales.x.max;
+        const factor = Math.pow(2, by / (zoomTravel || WHEEL_TRAVEL));
+        const from = at - (at - min) * factor;
+        const to = at + (max - at) * factor;
+        if (to - from >= options.to - options.from) {
+          spread(options.from, options.to);
+        } else {
+          slide(from, to);
+        }
+      };
       chart.over.addEventListener("wheel", function (event) {
         // Zooming is the wheel with Ctrl held, which is also what a trackpad pinch
         // sends.
-        if (event.ctrlKey) {
-          event.preventDefault();
-          const box = chart.over.getBoundingClientRect();
-          const at = chart.posToVal(event.clientX - box.left, "x");
-          const min = chart.scales.x.min;
-          const max = chart.scales.x.max;
-          const factor = event.deltaY < 0 ? 0.8 : 1.25;
-          const from = at - (at - min) * factor;
-          const to = at + (max - at) * factor;
-          if (to - from >= options.to - options.from) {
-            spread(options.from, options.to);
-          } else {
-            slide(from, to);
-          }
-          return;
-        }
         if (event.timeStamp - lastWheel > GESTURE_GAP) {
           takes = null;
+          framed = false;
+          owed = 0;
+          zoomTravel = 0;
         }
         lastWheel = event.timeStamp;
+        if (event.ctrlKey) {
+          event.preventDefault();
+          if (!zoomTravel && Math.abs(event.deltaY) >= ZOOM_TRACE) {
+            zoomTravel = Math.abs(event.deltaY) < PINCH_STEP ? PINCH_TRAVEL : WHEEL_TRAVEL;
+          }
+          zoomedAt = event.clientX;
+          owedZoom += event.deltaY;
+          if (zoomFramed) {
+            return;
+          }
+          spendZoom();
+          zoomFramed = true;
+          requestAnimationFrame(function () {
+            zoomFramed = false;
+            spendZoom();
+          });
+          return;
+        }
         if (takes === null) {
           if (!event.deltaX && !event.deltaY) {
             return;
@@ -707,15 +778,23 @@ var PAPvaultPlots = (function () {
           // page's, which is what scrolls a plot out of the way to read the next one.
           takes = Math.abs(event.deltaX) > Math.abs(event.deltaY)
             && (chart.scales.x.min > options.from || chart.scales.x.max < options.to);
+          perPixel = (chart.scales.x.max - chart.scales.x.min)
+            / chart.over.getBoundingClientRect().width;
         }
         if (!takes) {
           return;
         }
         event.preventDefault();
-        const min = chart.scales.x.min;
-        const max = chart.scales.x.max;
-        const by = event.deltaX * (max - min) / chart.over.getBoundingClientRect().width;
-        slide(min + by, max + by);
+        owed += event.deltaX * perPixel;
+        if (framed) {
+          return;
+        }
+        spend();
+        framed = true;
+        requestAnimationFrame(function () {
+          framed = false;
+          spend();
+        });
       }, { passive: false });
 
       // Ctrl and drag slides the window instead of zooming it: the span is kept, and
