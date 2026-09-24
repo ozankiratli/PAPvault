@@ -1,8 +1,15 @@
-"""A probe that wheels over a plot with and without Ctrl.
+"""A probe that wheels over a plot with and without Ctrl, then drags it both ways.
 
-Without Ctrl the page must keep the event, so it scrolls; with Ctrl the page must
-take it and the chart must redraw. The redraw is checked by comparing the canvas
+Without Ctrl the page must keep the wheel event, so it scrolls; with Ctrl the page
+must take it and the chart must redraw. The redraw is checked by comparing the canvas
 before and after, so a handler that swallows the event without zooming fails too.
+
+Then, zoomed in, a drag with Ctrl held must slide the window without changing its
+span, a drag without Ctrl must still zoom to the selection, and a drag long enough to
+run off the start must stop there rather than past it.
+
+The scale is read off the running charts, which uPlot hands back through the sync key
+the stack registers them under -- the same objects the page is driving, not a copy.
 """
 import base64, hashlib, json, pathlib, sys
 ROOT, OUT = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
@@ -46,6 +53,33 @@ window.addEventListener("load", function () {
         over.dispatchEvent(e);
         return e.defaultPrevented;
       }
+      var stack = uPlot.sync("papvault-day").plots;
+      var spanOf = function (u) { return u.scales.x.max - u.scales.x.min; };
+      var whole = { min: stack[0].scales.x.min, max: stack[0].scales.x.max };
+
+      // Every event is dispatched on the overlay and bubbles from there, which is how
+      // it reaches uPlot's own listener on the overlay, uPlot's mouseup on the
+      // document, and the page's pan listeners on the window, all from one dispatch.
+      function drag(withCtrl, by) {
+        var y = box.top + box.height / 2;
+        var from = box.left + box.width / 2;
+        var last = from;
+        // movementX has to be set. uPlot drops a mousemove that reports no movement,
+        // to get past a Chrome bug that sends a stray one after a mousedown, and a
+        // constructed MouseEvent reports none unless it is told to.
+        function send(kind, x) {
+          over.dispatchEvent(new MouseEvent(kind, {
+            bubbles: true, cancelable: true, button: 0, buttons: 1,
+            clientX: x, clientY: y, ctrlKey: withCtrl, movementX: x - last, movementY: 0
+          }));
+          last = x;
+        }
+        send("mousedown", from);
+        send("mousemove", from + by * 0.5);
+        send("mousemove", from + by);
+        send("mouseup", from + by);
+      }
+
       var plain = canvas.toDataURL();
       var plainPrevented = wheel(false);
       var afterPlain = canvas.toDataURL();
@@ -55,13 +89,40 @@ window.addEventListener("load", function () {
         // Every chart must have moved together, not just the one wheeled over.
         var others = 0;
         charts.forEach(function (c, i) { if (i > 1 && c.querySelector("canvas")) { others++; } });
-        document.title = "WHEEL " + JSON.stringify({
-          plainScrollPrevented: plainPrevented,
-          plainChangedChart: afterPlain !== plain,
-          ctrlScrollPrevented: ctrlPrevented,
-          ctrlChangedChart: afterCtrl !== afterPlain,
-          chartsInStack: charts.length
-        });
+
+        var zoomed = { min: stack[0].scales.x.min, max: stack[0].scales.x.max };
+        drag(true, 120);
+        setTimeout(function () {
+          var panned = { min: stack[0].scales.x.min, max: stack[0].scales.x.max };
+          var together = stack.every(function (u) {
+            return u.scales.x.min === panned.min && u.scales.x.max === panned.max;
+          });
+          // Far enough to run off the start of the period, which it must not do.
+          drag(true, box.width * 40);
+          setTimeout(function () {
+            var stopped = { min: stack[0].scales.x.min, max: stack[0].scales.x.max };
+            var spanBeforeSelect = spanOf(stack[0]);
+            drag(false, box.width / 4);
+            setTimeout(function () {
+              document.title = "WHEEL " + JSON.stringify({
+                plainScrollPrevented: plainPrevented,
+                plainChangedChart: afterPlain !== plain,
+                ctrlScrollPrevented: ctrlPrevented,
+                ctrlChangedChart: afterCtrl !== afterPlain,
+                chartsInStack: charts.length,
+                zoomedSpan: zoomed.max - zoomed.min,
+                wholeSpan: whole.max - whole.min,
+                panMovedBy: panned.min - zoomed.min,
+                panSpan: panned.max - panned.min,
+                panTogether: together,
+                stoppedAtStart: stopped.min - whole.min,
+                stoppedSpan: stopped.max - stopped.min,
+                spanBeforeSelect: spanBeforeSelect,
+                spanAfterSelect: spanOf(stack[0])
+              });
+            }, 200);
+          }, 200);
+        }, 200);
       }, 200);
     }, 400);
   })();

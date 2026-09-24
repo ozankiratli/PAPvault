@@ -106,6 +106,52 @@ window.addEventListener("load", function () {
     });
   }
 
+  // Ctrl and a drag must slide a zoomed summary stack along, the same as a day's.
+  // Only the x scale moves, so nothing else the report measures is disturbed by it.
+  // uPlot sets a scale on its own schedule rather than in the handler, so each step
+  // waits; and the drag sets movementX because uPlot drops a mousemove reporting none.
+  function summaryPanThen(then) {
+    var stack = uPlot.sync("papvault-summary").plots;
+    if (!stack.length) { then(null); return; }
+    // The chart's own overlay, not the first in the card: the events bar chart sits
+    // in the same card and is not part of the stack that zooms.
+    var over = stack[0].over;
+    var box = over.getBoundingClientRect();
+    var y = box.top + box.height / 2;
+    var from = box.left + box.width / 2;
+    var spanOf = function () { return stack[0].scales.x.max - stack[0].scales.x.min; };
+    var wholeSpan = spanOf();
+    over.dispatchEvent(new WheelEvent("wheel", {
+      deltaY: -120, bubbles: true, cancelable: true,
+      clientX: from, clientY: y, ctrlKey: true
+    }));
+    setTimeout(function () {
+      var zoomedSpan = spanOf();
+      var wasAt = stack[0].scales.x.min;
+      var last = from;
+      [["mousedown", 0], ["mousemove", 60], ["mousemove", 120], ["mouseup", 120]]
+        .forEach(function (move) {
+          var x = from + move[1];
+          over.dispatchEvent(new MouseEvent(move[0], {
+            bubbles: true, cancelable: true, button: 0, buttons: 1,
+            clientX: x, clientY: y, ctrlKey: true, movementX: x - last, movementY: 0
+          }));
+          last = x;
+        });
+      setTimeout(function () {
+        then({
+          wholeSpan: wholeSpan,
+          zoomedSpan: zoomedSpan,
+          movedBy: stack[0].scales.x.min - wasAt,
+          spanAfter: spanOf(),
+          together: stack.every(function (u) {
+            return u.scales.x.min === stack[0].scales.x.min;
+          })
+        });
+      }, 200);
+    }, 200);
+  }
+
   var tries = 0;
   (function step() {
     if (++tries > 12000) { document.title = "GAVE UP " + document.getElementById("summary-body").textContent.slice(0, 80); return; }
@@ -126,6 +172,7 @@ window.addEventListener("load", function () {
       return;
     }
     setTimeout(function () {
+      summaryPanThen(function (summaryPan) {
       var titles = [];
       document.querySelectorAll(".plot .u-title").forEach(function (t) { titles.push(t.textContent); });
       // Where each chart's plotting area begins and ends. They must all agree, or a
@@ -146,6 +193,7 @@ window.addEventListener("load", function () {
           - (parseFloat(over.style.top) + parseFloat(over.style.height))));
       });
       document.title = "REPORT " + JSON.stringify({
+        summaryPan: summaryPan,
         roomBelow: roomBelow,
         summary: document.getElementById("summary-body").textContent,
         chartTitles: titles,
@@ -188,6 +236,7 @@ window.addEventListener("load", function () {
         problems: window.papvaultProblems,
         toggles: window.papvaultToggles || null,
         markupAnywhere: document.querySelectorAll("#summary-body script, #plots-body script, #summary-plots script").length
+      });
       });
     }, 300);
   })();

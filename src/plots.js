@@ -37,6 +37,28 @@ var PAPvaultPlots = (function () {
   const AXIS_LABEL_GAP = 18;
   const SPACE_SAMPLES = 12;
 
+  // A drag with Ctrl held -- Command on an Apple keyboard -- slides the window rather
+  // than zooming it. An Apple keyboard sends Ctrl with the right button, so a pan is
+  // the left button and one of the two keys.
+  function isPan(event) {
+    return event.button === 0 && (event.ctrlKey || event.metaKey);
+  }
+
+  // uPlot's own filter on the one event a pan takes from it, so the drag that pans
+  // never starts a zoom selection. Every other event it binds is left as it was.
+  const PAN_BIND = {
+    mousedown: function (u, target, handle, onlyTarget) {
+      return function (event) {
+        if (event.button !== 0 || (onlyTarget !== false && event.target !== target)) {
+          return;
+        }
+        if (!isPan(event)) {
+          handle(event);
+        }
+      };
+    },
+  };
+
   // How wide the left axis has to be for these names, and how far a name may run
   // before it is cut short to fit.
   function axisWidthFor(labels, cap) {
@@ -364,7 +386,7 @@ var PAPvaultPlots = (function () {
       height: labels.length * EVENT_ROW_HEIGHT + 28,
       padding: options.padding,
       title: "Events, as the device named them",
-      cursor: { sync: { key: CURSOR_SYNC.key, scales: ["x", null] }, y: false },
+      cursor: { sync: { key: CURSOR_SYNC.key, scales: ["x", null] }, y: false, bind: PAN_BIND },
       legend: { show: false },
       scales: { x: { time: false }, y: { range: [0, labels.length] } },
       axes: [
@@ -474,6 +496,7 @@ var PAPvaultPlots = (function () {
       cursor: {
         sync: { key: CURSOR_SYNC.key, scales: ["x", null] },
         drag: { x: true, y: false },
+        bind: PAN_BIND,
       },
       legend: { live: true },
       scales: { x: { time: false }, y: { range: paddedRange(false) } },
@@ -509,11 +532,29 @@ var PAPvaultPlots = (function () {
       spreading = false;
     };
 
+    // A window of the width it already has, put where it was asked for and no further
+    // than the ends of the period the stack was given. The drag and the wheel zoom
+    // both go through here.
+    const slide = function (from, to) {
+      if (from < options.from) {
+        to += options.from - from;
+        from = options.from;
+      }
+      if (to > options.to) {
+        from -= to - options.to;
+        to = options.to;
+      }
+      spread(from, to);
+    };
+
     for (const chart of charts) {
       chart.papvaultSpread = spread;
       chart.over.addEventListener("wheel", function (event) {
-        // Plain scrolling belongs to the page. Zooming is the wheel with Ctrl held,
-        // which is also what a trackpad pinch sends.
+        // Plain scrolling belongs to the page, every event of it. A wheel gesture is
+        // latched to whatever scrolled first, so taking some events of one and leaving
+        // others hands the rest of that gesture to the page whatever this does later.
+        // Zooming is the wheel with Ctrl held, which is also what a trackpad pinch
+        // sends.
         if (!event.ctrlKey) {
           return;
         }
@@ -523,23 +564,44 @@ var PAPvaultPlots = (function () {
         const min = chart.scales.x.min;
         const max = chart.scales.x.max;
         const factor = event.deltaY < 0 ? 0.8 : 1.25;
-        let from = at - (at - min) * factor;
-        let to = at + (max - at) * factor;
+        const from = at - (at - min) * factor;
+        const to = at + (max - at) * factor;
         if (to - from >= options.to - options.from) {
-          from = options.from;
-          to = options.to;
+          spread(options.from, options.to);
         } else {
-          if (from < options.from) {
-            to += options.from - from;
-            from = options.from;
-          }
-          if (to > options.to) {
-            from -= to - options.to;
-            to = options.to;
-          }
+          slide(from, to);
         }
-        spread(from, to);
       }, { passive: false });
+
+      // Ctrl and drag slides the window instead of zooming it: the span is kept, and
+      // the window is clamped to the period the stack was given.
+      chart.over.addEventListener("mousedown", function (event) {
+        if (!isPan(event)) {
+          return;
+        }
+        event.preventDefault();
+        const min = chart.scales.x.min;
+        const max = chart.scales.x.max;
+        const perPixel = (max - min) / chart.over.getBoundingClientRect().width;
+        const grabbed = event.clientX;
+        chart.over.classList.add("panning");
+        const move = function (moved) {
+          // The button was let go where this could not hear it, outside the window.
+          if (moved.buttons === 0) {
+            stop();
+            return;
+          }
+          const by = (grabbed - moved.clientX) * perPixel;
+          slide(min + by, max + by);
+        };
+        const stop = function () {
+          window.removeEventListener("mousemove", move);
+          window.removeEventListener("mouseup", stop);
+          chart.over.classList.remove("panning");
+        };
+        window.addEventListener("mousemove", move);
+        window.addEventListener("mouseup", stop);
+      });
 
       chart.over.addEventListener("dblclick", function () {
         spread(options.from, options.to);
@@ -742,7 +804,8 @@ var PAPvaultPlots = (function () {
       height: CHART_HEIGHT + (showDates ? 30 : 0),
       padding: options.padding,
       title: summary.title + (unit ? " (" + unit + ")" : ""),
-      cursor: { sync: { key: SUMMARY_SYNC.key, scales: ["x", null] }, drag: { x: true, y: false } },
+      cursor: { sync: { key: SUMMARY_SYNC.key, scales: ["x", null] }, drag: { x: true, y: false },
+        bind: PAN_BIND },
       legend: { live: true },
       scales: { x: { time: false }, y: { range: paddedRange(summary.bars) } },
       axes: summaryAxes(options, showDates),

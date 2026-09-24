@@ -700,6 +700,12 @@ button:disabled {
   font-family: inherit;
 }
 
+/* While a drag is sliding the window along. The class is put on and taken off in
+   plots.js, which is where a pan begins and ends. */
+.plot .u-over.panning {
+  cursor: grabbing;
+}
+
 .plot .u-title {
   font-size: 0.8rem;
   font-weight: 600;

@@ -193,6 +193,15 @@ def check_range(report, checks):
     checks.that("the session box gives an average per day", "Per day" in report["summary"])
     checks.that("every summary chart shares one plotting area",
                 len(report["plotBoxes"]) == 1, report["plotBoxes"])
+    # The summary stack pans the same way a day's does, which the manual promises.
+    pan = report["summaryPan"]
+    checks.that("a period's stack zooms on Ctrl and the wheel",
+                pan and pan["zoomedSpan"] < pan["wholeSpan"], pan)
+    checks.that("Ctrl and a drag to the right moves a period's window earlier",
+                pan and pan["movedBy"] < 0, pan)
+    checks.that("and keeps the span it was given",
+                pan and abs(pan["spanAfter"] - pan["zoomedSpan"]) < 1, pan)
+    checks.that("and moves every summary chart together", pan and pan["together"] is True, pan)
     checks.that("nothing threw", report["problems"] == [], report["problems"])
     checks.that("nothing from a file became markup", report["markupAnywhere"] == 0)
 
@@ -348,6 +357,24 @@ def check_wheel(report, checks):
     checks.that("a plain wheel does not zoom", report["plainChangedChart"] is False)
     checks.that("Ctrl and the wheel is taken by the plot", report["ctrlScrollPrevented"] is True)
     checks.that("Ctrl and the wheel zooms", report["ctrlChangedChart"] is True)
+    # The pan is checked on the scale the charts are actually drawn at, so a handler
+    # that moved the picture without moving the window would fail.
+    checks.that("the wheel left the stack zoomed in",
+                report["zoomedSpan"] < report["wholeSpan"], report["zoomedSpan"])
+    checks.that("Ctrl and a drag to the right moves the window earlier",
+                report["panMovedBy"] < 0, report["panMovedBy"])
+    checks.that("a pan keeps the span it was given",
+                abs(report["panSpan"] - report["zoomedSpan"]) < 1,
+                (report["panSpan"], report["zoomedSpan"]))
+    checks.that("every chart in the stack panned together", report["panTogether"] is True)
+    checks.that("a pan stops at the start of the period",
+                abs(report["stoppedAtStart"]) < 1, report["stoppedAtStart"])
+    checks.that("a pan that runs off the end still keeps its span",
+                abs(report["stoppedSpan"] - report["zoomedSpan"]) < 1,
+                (report["stoppedSpan"], report["zoomedSpan"]))
+    checks.that("a drag without Ctrl still zooms to the selection",
+                report["spanAfterSelect"] < report["spanBeforeSelect"],
+                (report["spanBeforeSelect"], report["spanAfterSelect"]))
 
 
 def check_legend(report, checks):

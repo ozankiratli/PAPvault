@@ -91,3 +91,28 @@ Making the folder handler put a box on screen before it touches the file list ch
 which reads as "wait until it has stopped reading" and actually means "wait until it is not saying it is reading". Those are the same thing only while the page starts reading in the same task that receives the folder. Once the handler yields once before starting, there is a moment when the folder has been handed over and nothing has been said yet, and a probe that begins in that moment finds an empty calendar. The step probe walked forty empty days and reported `LOOPED`; the range and events probes clicked at calendar cells that did not exist, got no range, and failed six checks between them with figures from the wrong day.
 
 **The lesson is about what a readiness test is made of.** The absence of a message is not the presence of a result. Every one of them now waits for the result itself -- `document.querySelector(".calendar-day.has-data")`, a card with nights in it -- which is true only once there is something to click and false in that empty moment either side of it.
+
+## A synthetic drag that uPlot never saw, 2026-09-23
+
+*Found 2026-09-23.* A probe dragged across a plot with `new MouseEvent("mousemove", {clientX: ..., bubbles: true})` and the chart did not zoom. The events were reaching the element -- the page's own pan listener on the window ran, from the same dispatch -- so the dispatch was right and something downstream was dropping them.
+
+uPlot's `mouseMove` opens with this:
+
+    if (dragging && e != null && e.movementX == 0 && e.movementY == 0)
+        return;
+
+which is there for a Chrome bug that sends a stray mousemove after a mousedown. A constructed `MouseEvent` reports `movementX == 0` unless the init dictionary says otherwise, so **every** synthetic mousemove looked like that stray one and was dropped. Setting `movementX` to the step since the last event fixed it.
+
+The reason this matters beyond uPlot: the check that a plain drag still zooms had been **passing on nothing**. It compared the span before and after a drag that never happened, and two unchanged numbers can be read as "nothing broke" instead of "nothing occurred". It was caught only by running the same probe against the page as it stood before the change, where the numbers should have differed and did not.
+
+**A synthetic input event is not the input.** Anything that filters on a field a constructed event does not carry -- `movementX`, `isTrusted`, `pointerId`, `pressure` -- will silently ignore it. When a probe drives an interaction, run it once against a version where the interaction behaves differently and check the numbers actually move.
+
+## requestAnimationFrame is starved under virtual time, 2026-09-23
+
+*Found 2026-09-23.* Coalescing a burst of wheel events to one redraw is what `requestAnimationFrame` is for, so that is what the page used first. The probe then read the scale back 200 milliseconds later and found it unmoved, every time.
+
+Frames were being produced -- a `requestAnimationFrame` loop counting them reported **4 for the whole probe**, against roughly eight waits of 200 milliseconds each. That is the whole of it: `--virtual-time-budget` advances the clock to the next pending *timer* as fast as it can, and frame production does not follow it. So virtual time makes timers nearly free and frames nearly absent, and the two clocks drift apart in the direction that makes a frame-scheduled callback look like it never ran. Making the probe wait on a frame instead of a timer did not rescue it either: four frames is not enough to spend one on each step, and the probe burned its budget and set no title at all.
+
+The page ended up needing neither: the gesture that wanted coalescing -- a sideways two-finger swipe to slide the window -- was removed the same day, because making `preventDefault` conditional on the direction of each wheel event let Chrome latch the whole gesture to the page. The trap stands on its own all the same, for the next thing that wants a frame. For a chart redraw the two are equivalent -- the point is to stop redrawing ten charts per event, not to align with the compositor -- and only one of them can be driven in a check. **Where a frame and a timer would do the same job, the timer is the one this suite can see.** If a future change genuinely needs frame alignment, the honest thing is to write that the check cannot cover it rather than to keep a check that passes for the wrong reason.
+
+The companion trap is the one above it: a probe that waits with `setTimeout` for work scheduled on a frame reads too early and reports a zero, which looks exactly like a feature that does nothing.

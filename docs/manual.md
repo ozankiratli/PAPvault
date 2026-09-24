@@ -161,6 +161,8 @@ PAPvault sets no threshold of its own. It has no view on what counts as a large 
 
 **The plots line up and move together.** Moving the pointer over any one of them draws a line at that moment across all of them, so you can see what every other signal was doing at the same instant. Drag sideways across a plot to zoom into it; every plot zooms with it. You can also hold Ctrl and use the wheel, or pinch on a trackpad. Scrolling on its own moves the page, as it does everywhere else. Double-click to go back to the whole night.
 
+**Once you are zoomed in, hold Ctrl and drag to slide the window along** -- Command instead of Ctrl on a Mac, where Ctrl and a click is a right click. The plots move with your pointer, the way a map does, and they keep the width you zoomed to. Slide to either end of the night and they stop there rather than running off it. This works on the summary plots too, when you have a period selected rather than a single night.
+
 **Events keep the words your machine wrote.** The strip at the top of the stack gives each event name its own row and its own color, and the same color marks that event across every plot below, as a line at the moment it began with its duration shaded behind. The **Legend** button in the bottom right corner lists every name with its color and how many there were, and stays within reach however far down the plots you have scrolled.
 
 **On a ResMed card those words are** `Arousal`, `Apnea`, `Central Apnea`, `Hypopnea`, `Obstructive Apnea`, `CSR Start` and `CSR End`. They come from the card, not from PAPvault, so a machine that writes something else shows something else and is read exactly the same way. Nothing here is a list PAPvault checks against.
