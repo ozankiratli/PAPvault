@@ -284,3 +284,13 @@ Everything this note reports as measured was measured with scripts that are **no
 That is a gap, and it is named rather than papered over. Two Node scripts drive `src/edf.js` and `src/card.js` against the synthetic answers, 665 and 822 checks; five Python scripts build probe copies of the built page, carrying a synthetic card inline and feeding it through the real file input, which is how the day and range views, the event strip's pixels, the scroll behaviour, the legend and the manual's groups were all checked. Whether any of them belongs in `dev/` is Z's decision and has not been made: `CLAUDE.md` says there is no automated suite because a suite the agent writes and runs is the agent vouching for itself, and that reasoning does not stop applying because the scripts turned out to be useful.
 
 What a reader can re-run today without them: `python3 build.py` twice for the checksum, the `no-markup` grep, and every entry in `dev/CHECKLIST.md`.
+
+## The card's own event vocabulary, 2026-09-22
+
+*Appended 2026-09-24, against the tree at `d9d9bfd`. It records a decision that was living in a comment in `src/app.js`, under the rule Z gave that day: a comment says what the code does, and a decision belongs here.*
+
+Z, 2026-09-22: *"From each machine when the card is read, we create a full list of events. Each of these events are assigned to a color at that point."*
+
+So the vocabulary is the card's, not the period's. Every event name anywhere on the card is collected once, when the folder is opened, in the order it will be drawn, and each name takes one color and keeps it for as long as the card is open. Two things follow that a period-by-period list could not give: a night with none of an event still shows its row, at zero, and an event that happens on one night in a hundred is never missed for being absent from the night on screen. One map carries both the order and the color, so what a reader sees in the legend and what a name is drawn in cannot drift apart.
+
+**This reverses the per-theme ordering described above.** That section describes a scheme where each theme handed out its own order, so an event could be one color in the light theme and another in the dark. Under Z's decision a name's color is fixed when the card is read and is the same in both themes, and the named colors in `src/style.css` are therefore set once rather than per theme. The earlier section is left as it was written, which is what these notes are for.

@@ -14,9 +14,9 @@ var PAPvaultPlots = (function () {
   const AXIS_WIDTH_CAP = 140;
   const LABEL_FONT = "11px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
   const CHART_HEIGHT = 150;
-  // Set here, because uPlot reserves room on the right only for a chart whose time
-  // axis is shown, which would leave the bottom chart narrower than the rest. A day
-  // stack starts from this and widens the right side to fit its own time labels.
+  // uPlot reserves room on the right only for a chart whose time axis is shown, so
+  // every chart is given it here. A day stack starts from this and widens the right
+  // side to fit its own time labels.
   //
   // The bottom is not zero: a y axis label is drawn centred on its tick, so the
   // lowest one -- a plain 0 on every signal that cannot go below it -- needs half its
@@ -112,9 +112,7 @@ var PAPvaultPlots = (function () {
       { signal: "tidVol", name: "Tidal Volume", color: "--plot-tid-vol" }] },
     { key: "minVent", title: "Minute Ventilation", series: [
       { signal: "minVent", name: "Minute Ventilation", color: "--plot-min-vent" }] },
-    // Disabled until there is a card to test it against: ResMed records oximetry only
-    // on the AirSense 10, and a compatible oximeter is hard to come by (Z, 2026-09-20).
-    // Nothing offers it, so no oximetry file is opened.
+    // Off and disabled, so nothing offers it and no oximetry file is opened.
     { key: "oximetry", title: "Oximetry", off: true, disabled: true, series: [
       { signal: "pulse", name: "Pulse", color: "--plot-pulse" },
       { signal: "spo2", name: "SpO2", color: "--plot-spo2" }] },
@@ -150,7 +148,12 @@ var PAPvaultPlots = (function () {
 
   // One chart's columns across every session of the day, with a break between
   // sessions so the line does not run across the gap between them.
-  function columnsFor(chart, sessions) {
+  // At a step of one this is every sample. At a wider step each run of that many
+  // samples becomes two points, the lowest and the highest in it, placed at the first
+  // and last moment of the run, so a line drawn from them covers the same ground as
+  // the samples it stands for and every step ends where the samples end. A run
+  // holding no number at all becomes two nulls, which is the break between sessions.
+  function columnsFor(chart, sessions, step) {
     const x = [];
     const columns = chart.series.map(function () {
       return [];
@@ -176,18 +179,94 @@ var PAPvaultPlots = (function () {
       }
       found = true;
       const length = longest.x.length;
-      for (let i = 0; i < length; i++) {
-        x.push(longest.x[i]);
+      if (!step || step < 2) {
+        for (let i = 0; i < length; i++) {
+          x.push(longest.x[i]);
+        }
+        chart.series.forEach(function (spec, index) {
+          const held = loaded.signals[spec.signal];
+          const column = columns[index];
+          for (let i = 0; i < length; i++) {
+            column.push(held && i < held.y.length ? held.y[i] : null);
+          }
+        });
+        continue;
+      }
+      for (let at = 0; at < length; at += step) {
+        x.push(longest.x[at], longest.x[Math.min(at + step, length) - 1]);
       }
       chart.series.forEach(function (spec, index) {
         const held = loaded.signals[spec.signal];
         const column = columns[index];
-        for (let i = 0; i < length; i++) {
-          column.push(held && i < held.y.length ? held.y[i] : null);
+        const values = held ? held.y : null;
+        for (let at = 0; at < length; at += step) {
+          const end = Math.min(at + step, length);
+          let low = null;
+          let high = null;
+          for (let i = at; values && i < end && i < values.length; i++) {
+            const value = values[i];
+            if (value === null || !Number.isFinite(value)) {
+              continue;
+            }
+            if (low === null || value < low) {
+              low = value;
+            }
+            if (high === null || value > high) {
+              high = value;
+            }
+          }
+          column.push(low, high);
         }
       });
     }
     return found ? { data: [x].concat(columns), reach: x.length } : null;
+  }
+
+  // The steps a chart is reduced at, coarsest last. Two points come out of each run
+  // of samples, so a step of 8 draws a quarter of them and a step of 512 a 256th.
+  const STEPS = [1, 8, 64, 512];
+  // Below this many samples a chart is drawn whole and no reduction is built.
+  const REDUCE_ABOVE = 20000;
+  // The most points worth drawing across one pixel.
+  const PER_PIXEL = 2;
+
+  // One chart at every step that is worth holding: the samples themselves first, then
+  // the reductions, each covering the whole period rather than a window of it.
+  function pyramidFor(chart, sessions) {
+    const whole = columnsFor(chart, sessions, 1);
+    if (!whole) {
+      return null;
+    }
+    const levels = [{ step: 1, data: whole.data, points: whole.reach }];
+    if (whole.reach > REDUCE_ABOVE) {
+      for (const step of STEPS) {
+        if (step < 2 || whole.reach / step * 2 < REDUCE_ABOVE / 8) {
+          continue;
+        }
+        const made = columnsFor(chart, sessions, step);
+        levels.push({ step: step, data: made.data, points: made.reach });
+      }
+    }
+    return levels;
+  }
+
+  // Which level to draw at: the coarsest whose points across the window on screen
+  // still reach the density asked for. Level 0 is the samples, and is the answer
+  // whenever nothing coarser has enough left.
+  function levelFor(levels, span, widthPx) {
+    const xs = levels[0].data[0];
+    const reach = xs[xs.length - 1] - xs[0];
+    if (!(span > 0) || !(reach > 0)) {
+      return 0;
+    }
+    const room = Math.max(widthPx, 1) * PER_PIXEL;
+    const showing = span / reach;
+    for (let at = levels.length - 1; at > 0; at--) {
+      if (levels[at].points * showing >= room) {
+        return at;
+      }
+    }
+    return 0;
   }
 
   function unitOf(chart, sessions) {
@@ -468,10 +547,14 @@ var PAPvaultPlots = (function () {
   }
 
   function buildChart(parent, chart, sessions, options, width, showTimes) {
-    const columns = columnsFor(chart, sessions);
-    if (!columns) {
+    const levels = pyramidFor(chart, sessions);
+    if (!levels) {
       return null;
     }
+    // The level the period it opens on calls for, so the first draw is not the one
+    // that costs the most.
+    const opening = levelFor(levels, options.to - options.from, width);
+    const columns = levels[opening];
     const unit = unitOf(chart, sessions);
     const holder = document.createElement("div");
     holder.className = "plot";
@@ -512,15 +595,44 @@ var PAPvaultPlots = (function () {
       plugins: [eventBands(options.events, options.eventColors, options.colorOf)],
       hooks: {
         setScale: [function (u, key) {
-          if (key === "x" && u.papvaultSpread) {
+          if (key !== "x") {
+            return;
+          }
+          if (u.papvaultSpread) {
             u.papvaultSpread(u.scales.x.min, u.scales.x.max);
           }
+          swapLevel(u, levels);
         }],
       },
     };
     const built = new uPlot(config, columns.data, holder);
+    built.papvaultLevel = opening;
     built.setScale("x", { min: options.from, max: options.to });
     return built;
+  }
+
+  // Hands the chart the level its window now calls for. The whole of that level goes
+  // over, never a window of it, so the scale the reader chose is untouched and the
+  // chart can still be zoomed back out to the period it was built with.
+  // setData without a rescale draws nothing on its own, so the redraw is what puts it
+  // on screen, and it runs outside the commit that asked for it.
+  function swapLevel(u, levels) {
+    if (levels.length < 2) {
+      return;
+    }
+    const want = levelFor(levels, u.scales.x.max - u.scales.x.min,
+      u.over.clientWidth || u.width);
+    if (want === u.papvaultLevel) {
+      return;
+    }
+    u.papvaultLevel = want;
+    Promise.resolve().then(function () {
+      if (u.papvaultLevel !== want || !u.root.isConnected) {
+        return;
+      }
+      u.setData(levels[want].data, false);
+      u.redraw();
+    });
   }
 
   // One chart's zoom becomes every chart's zoom, and the wheel zooms about the pointer.
@@ -683,11 +795,8 @@ var PAPvaultPlots = (function () {
     };
   }
 
-  // One entry per summary chart, in the order they are stacked. Each reads its
-  // columns off the per-day figures it is handed.
-  // One line per figure a night carries. The line is the mean rather than the median
-  // because a period longer than a night averages these, and an average of medians is
-  // not a statistic of anything (Z, 2026-09-23).
+  // One entry per summary chart, in the order they are stacked. Each reads its columns
+  // off the per-day figures it is handed, one line per figure a night carries.
   const SUMMARIES = [
     {
       key: "usage", title: "Hours Used/day", bars: true,
@@ -910,8 +1019,8 @@ var PAPvaultPlots = (function () {
           const row = u.bbox.height / names.length;
           const zero = u.valToPos(0, "x", true);
           ctx.font = Math.round(11 * devicePixelRatio) + "px " + LABEL_FONT.slice(5);
-          // Both are set here because the context arrives from uPlot's own axis
-          // drawing, which leaves the count centered on the end of its bar.
+          // The context arrives from uPlot's own axis drawing, which leaves the count
+          // centered on the end of its bar, so both are set again here.
           ctx.textAlign = "left";
           ctx.textBaseline = "middle";
           names.forEach(function (name, index) {
@@ -939,8 +1048,7 @@ var PAPvaultPlots = (function () {
   }
 
   // The closest two of these points come, in seconds, or zero for a single point.
-  // It is what uPlot measures a bar's width against, and a month is not a fixed
-  // length, so the mean gap between points is not it.
+  // Months are of different lengths, so this is the shortest gap and not the mean one.
   function shortestStep(days) {
     let step = 0;
     for (let index = 1; index < days.length; index++) {
@@ -956,13 +1064,10 @@ var PAPvaultPlots = (function () {
   // chosen period.
   function showSummary(container, given) {
     const width = Math.max(container.clientWidth, 320);
-    // Half a step either side, so the first and last bar stand whole inside the
-    // chart. A bar is centered on its point and clipped at the edge of the plotting
-    // area, so a point on that edge loses the half of its bar that falls outside.
-    // Grouped, the step is a week, a month or a year rather than a day.
+    // The scale reaches half a step past the first and last point, which is what a
+    // bar centered on either of them needs to be drawn whole. A single point has no
+    // step and stands for a day.
     const HALF_DAY = 43200;
-    // A single point has no step, and a day is what it stands for: a scale with a
-    // span rather than a point.
     const half = shortestStep(given.days) / 2 || HALF_DAY;
     const from = given.from - half;
     const to = given.to + half;

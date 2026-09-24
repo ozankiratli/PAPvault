@@ -182,6 +182,14 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 
 **Failure:** the plots' left edges or right edges do not line up with each other; the cursor line appears in one plot and not the rest, or at a different place in each; a zoom in one plot does not move the others; **a plain scroll over a plot zooms instead of moving the page, or Ctrl and the wheel moves the page instead of zooming**; Ctrl and a drag zooms instead of sliding the window, slides it the opposite way to the pointer, changes how much is shown, moves only the plot under the pointer, or carries the window past the start or the end of the night; a two-finger swipe up or down over a plot does not scroll the page, or a pinch that starts over a plot scrolls the page instead of zooming; double-click does not return to the whole night; a line is drawn straight across the gap between two sessions instead of breaking; the axis runs outside the night's own start and end; two time labels overlapping, or the last one clipped by the edge of the plot; a time label without seconds, or two neighboring ticks reading the same moment; or a plot whose signal the card does not hold is drawn empty rather than named as missing.
 
+## `flow-detail` -- zooming into flow shows more than the whole night did
+
+**Protects:** that a night of flow is drawn from a reduction of itself without the reader ever seeing one, and that zooming reaches the samples behind it. A whole night is hundreds of thousands of samples on a chart a thousand pixels wide, so what is drawn at that width is two points for each run of them, the lowest and the highest. Zoom in and finer levels take over.
+
+**How:** open a single night and look at the flow chart whole. Then drag a selection across a few minutes of it, and again across a few seconds. Individual breaths must appear and be the shape of breaths -- at the whole night the chart is a filled band, which is the envelope of the same data and is what a night of breathing looks like at that scale. Double-click back out and check the band is the same height it was. Then do it on a night with two sessions and check the gap between them is still a gap at every depth.
+
+**Failure:** zooming in shows the same coarse shape however far you go, so the detail is not there; the chart empties, or only the selected part of it is drawn and there is nothing to zoom back out to; double-click does not restore the whole night; the band's top or bottom moves when you zoom, so the reduction is not covering the range the samples do; the line runs across the gap between two sessions at one depth and breaks at another; or the chart flickers between two shapes while it settles.
+
 ## `event-colors` -- an event sits on the row that names it
 
 **Protects:** that an event is shown against the words the device wrote for it, and never against another event's name, and that one order of names runs through everything that lists them.

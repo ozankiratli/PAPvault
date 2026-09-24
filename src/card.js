@@ -212,10 +212,9 @@ var PAPvaultCard = (function () {
     }
 
     // A set of files with no flow never makes a session of its own. It joins the
-    // session it is nearest to in time, so nothing it holds -- its events above all --
-    // is lost because the machine stamped it apart from the night it belongs to. An
-    // event file declares no duration, so it stands at an instant and cannot be
-    // placed by overlap.
+    // session it is nearest to in time, carrying whatever it holds, its events above
+    // all. An event file declares no duration, so it stands at an instant and cannot
+    // be placed by overlap.
     for (const recording of flowing.length ? order : []) {
       if (recording.flowStart !== null) {
         continue;
@@ -453,10 +452,8 @@ var PAPvaultCard = (function () {
             if (RECORDING_MARKERS.indexOf(event.text) !== -1) {
               continue;
             }
-            // The device writes an event's annotation when the event has ended, so
-            // the onset is where the span stops and the span reaches back its own
-            // duration from there. A mark carrying no duration stands at the instant
-            // it names, which the same arithmetic leaves alone.
+            // The onset is where the span stops, and the span reaches back its own
+            // duration from there. A mark carrying no duration stands where it is.
             const ended = held.header.start.getTime() + event.onset * 1000;
             const at = new Date(ended - event.duration * 1000);
             out.events.push({
@@ -528,8 +525,7 @@ var PAPvaultCard = (function () {
 
   // Each pair of marks becomes one event lasting from the first to the second. A mark
   // whose partner is missing -- a period still open when the recording stopped, or an
-  // end with nothing before it -- is left exactly as the file wrote it, because the
-  // alternative is inventing where it began or ended.
+  // end with nothing before it -- is left exactly as the file wrote it.
   function foldSpans(events) {
     const opens = new Map();
     const closes = new Map();

@@ -345,6 +345,44 @@ def check_grouped(report, checks):
     checks.that("nothing threw", report["problems"] == [], report["problems"])
 
 
+def check_pyramid(report, checks):
+    whole = report["whole"]
+    zoomed = report["zoomed"]
+    # A title carries its unit in brackets, and "Flow" is a prefix of "Flow Limitation".
+    named = lambda one: one["title"].split(" (")[0]
+    flow = [one for one in whole["charts"] if named(one) == "Flow"]
+    checks.that("the day stack drew a flow chart", len(flow) == 1, whole["charts"])
+    if not flow:
+        return
+    # A night of flow is a sample every 40 milliseconds. Whatever the stack hands
+    # uPlot for the whole night, it is not that many points.
+    night = whole["last"] - whole["first"]
+    samples = night / 0.04
+    checks.that("a whole night of flow is drawn from far fewer points than it holds",
+                flow[0]["points"] < samples / 50, (flow[0]["points"], round(samples)))
+    checks.that("and it is on one of the reduced levels",
+                flow[0]["level"], 0)
+
+    # The failure the sliced version had: the data followed the scale, so selecting a
+    # window left the chart unable to show anything else. Zooming must narrow the
+    # window and leave the series covering the whole night.
+    checks.that("dragging a selection narrows the window",
+                zoomed["span"] < whole["span"], (zoomed["span"], whole["span"]))
+    checks.that("and the chart still holds the whole night either side of it",
+                zoomed["first"] == whole["first"] and zoomed["last"] == whole["last"],
+                (zoomed["first"], whole["first"], zoomed["last"], whole["last"]))
+    checks.that("so the series covers far more than the window on screen",
+                zoomed["last"] - zoomed["first"] > zoomed["span"] * 2,
+                (zoomed["last"] - zoomed["first"], zoomed["span"]))
+    zoomedFlow = [one for one in zoomed["charts"] if named(one) == "Flow"][0]
+    checks.that("and zoomed in it is drawn from more points than the whole night was",
+                zoomedFlow["points"] > flow[0]["points"],
+                (zoomedFlow["points"], flow[0]["points"]))
+    checks.that("every chart in the stack still has points on it",
+                all(one["points"] > 1 for one in zoomed["charts"]), zoomed["charts"])
+    checks.that("nothing threw", report["problems"] == [], report["problems"])
+
+
 def check_month(report, checks):
     # Moving the calendar to another month changes the calendar and nothing else.
     checks.that("the calendar moved to another month",
@@ -586,6 +624,7 @@ PROBES = [
     ("make-probes.py", "range", "REPORT", check_range),
     ("make-leak-probe.py", "leak", "LEAK", check_leak),
     ("make-grouped-probe.py", "grouped", "GROUPED", check_grouped),
+    ("make-pyramid-probe.py", "pyramid", "PYRAMID", check_pyramid),
     ("make-month-probe.py", "month", "MONTH", check_month),
     ("make-toggle-probe.py", "toggle", "TOGGLE", check_toggle),
     ("make-strip-probe.py", "strip", "STRIP", None),

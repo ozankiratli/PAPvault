@@ -46,8 +46,8 @@ var PAPvaultEDF = (function () {
     throw new Error(message);
   }
 
-  // Header text is padded with spaces. It is decoded as UTF-8 rather than ASCII
-  // because a device may write bytes the specification does not allow.
+  // Header text is padded with spaces, and is decoded as UTF-8: a device may write
+  // bytes the specification does not allow.
   function text(bytes, at, width) {
     return decoder.decode(bytes.subarray(at, at + width)).trim();
   }

@@ -13,12 +13,8 @@
   /* Replaced with the bar's measured height once the script runs. */
   --topbar-height: 3.5rem;
 
-  /* Event colors: Okabe and Ito's, in the order Z set on 2026-09-20. Both themes
-     carry the same seven; only the order differs, so a theme meets its second blue
-     and its second red late rather than early. The three pairs that come within 25
-     of each other -- orange with yellow, orange with vermilion, bluish green with
-     blue -- are close only under tritanopia. Under protanopia and deuteranopia,
-     which are the common ones, the seven stay apart. */
+  /* Event colors: Okabe and Ito's seven. Both themes carry the same seven and differ
+     only in the order they hand them out. */
   --plot-event-count: 7;
   --plot-event-1: #E69F00;  /* Orange */
   --plot-event-2: #009E73;  /* bluish Green */
@@ -29,12 +25,9 @@
   --plot-event-7: #CC79A7;  /* reddish Purple */
   --plot-event: #E69F00;
 
-  /* The same seven again, named rather than numbered, so an event can be given a
-     color instead of a place in a queue. Z assigned the device's own event names to
-     these on 2026-09-22. They are set once rather than per theme: the two themes
-     carry identical values and differ only in the order they hand out the numbered
-     ones, so a named color is the same in both and an event keeps it when the theme
-     changes. */
+  /* The same seven again, named rather than numbered, for an event given a color
+     instead of a place in a queue. Set once and not per theme, so a named color is
+     the same in both and an event keeps it when the theme changes. */
   --plot-event-orange: #E69F00;
   --plot-event-bluish-green: #009E73;
   --plot-event-blue: #0072B2;
@@ -50,8 +43,8 @@
   /* Signal colors: ColorBrewer's Dark2, for the light theme. Each plot draws one
      signal, so these need only be told apart from their own background, not from
      each other; where a plot draws several, they are given different entries.
-     Dark2 and Set2 pair by position, which is why the dark theme's set matches
-     this one entry for entry. Entry 8 is the neutral grey, which is flow. */
+     Dark2 and Set2 pair by position, and the dark theme's set matches this one
+     entry for entry. Entry 8 is the neutral grey, which is flow. */
   --plot-flow: #666666;
   --plot-mask-pressure: #7570B3;
   --plot-pressure: #1B9E77;

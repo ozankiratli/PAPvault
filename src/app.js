@@ -188,8 +188,7 @@
     return DEFAULT_SUMMARIES.slice();
   }
 
-  // How the summary charts group the nights they draw. A day is one point per night;
-  // the rest average the nights inside each calendar week, month or year. Z, 2026-09-23.
+  // The groupings the Average by control offers, in the order it offers them.
   const GROUPINGS = [
     { key: "day", name: "Daily" },
     { key: "week", name: "Weekly" },
@@ -384,10 +383,9 @@
     ["CSR", ["CSR", "Cheyne-Stokes"]],
   ]);
 
-  // The color each of the device's own event names takes, and the order they are
-  // drawn in, both set by Z on 2026-09-22. One map for both, so the order a reader
-  // sees and the color a name carries cannot drift apart. An event keeps its color
-  // whatever period is chosen and whichever theme is on.
+  // The color each of the device's own event names takes, and the order they are drawn
+  // in. One map carries both, and a name keeps its color whatever period is chosen and
+  // whichever theme is on.
   const EVENT_COLORS = new Map([
     ["CSR", "--plot-event-reddish-purple"],
     ["Obstructive Apnea", "--plot-event-bluish-green"],
@@ -404,10 +402,7 @@
 
   // The card's own vocabulary, built once when a card is read: every name anywhere on
   // it, in the order it is drawn, each holding one color for as long as the card is
-  // open. Z, 2026-09-22: "From each machine when the card is read, we create a full
-  // list of events. Each of these events are assigned to a color at that point." So a
-  // night with none of an event still shows its row at zero, and an event that happens
-  // on one night of a hundred is never missed for being absent from tonight.
+  // open. A night with none of an event still shows its row, at zero.
   let cardEvents = [];
   let cardEventColors = new Map();
 
@@ -593,10 +588,9 @@
     return day;
   }
 
-  // The mean of a figure across the nights in a group. Nights with no recording are
-  // not in the list at all, so nothing has to be skipped: a week of three nights is
-  // the mean of three (Z, 2026-09-23). A figure no night carries stays null rather
-  // than becoming zero, which would read as a measurement.
+  // The mean of a figure across the nights in a group. Nights with no recording are not
+  // in the list, so a week of three nights is the mean of three. A figure no night in
+  // the group carries comes back null, never zero.
   function meanOf(nights, pick) {
     let total = 0;
     let counted = 0;
@@ -610,8 +604,7 @@
     return counted ? total / counted : null;
   }
 
-  // A count is added up over a group rather than averaged: a week of three nights
-  // ran the machine as many times as those nights ran it. Z, 2026-09-24.
+  // The total of a figure across the nights in a group.
   function sumOf(nights, pick) {
     let total = 0;
     for (const night of nights) {
@@ -682,9 +675,8 @@
     return out;
   }
 
-  // What a period of this many nights is grouped by unless the reader says otherwise.
-  // It is a starting point and never a limit: every grouping stays choosable, because
-  // how to look at one's own data is not the page's decision to make (Z, 2026-09-23).
+  // Which grouping a period of this many nights starts on. It sets the control's
+  // value and takes nothing out of it.
   function groupingFor(nights) {
     if (nights > 1400) {
       return "year";
@@ -1074,8 +1066,7 @@
       from: points[0].seconds,
       to: points[points.length - 1].seconds,
       formatDate: formatGroup,
-      // What one point is, for the cursor readout. Grouped, the reading itself says
-      // which week, month or year it is, so the name in front of it stays general.
+      // The name the cursor readout puts in front of what a point is.
       dateLabel: chosenGrouping === "day" ? "Day" : "Period",
       colorOf: colorOf,
       labelOf: labelOf,
@@ -1409,9 +1400,8 @@
     folderStatus.replaceChildren(...said);
   }
 
-  // Reading a large folder takes long enough that the page would otherwise sit there
-  // saying nothing. The dialog goes up before the first file is opened and comes down
-  // however the reading ends.
+  // The dialog goes up before the first file is opened and comes down however the
+  // reading ends.
   function showLoading(what, heading) {
     loadingTitle.textContent = heading || "Loading...";
     loadingProgress.textContent = what || "";
