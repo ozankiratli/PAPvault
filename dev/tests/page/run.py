@@ -286,6 +286,15 @@ def readings(first):
     }
 
 
+def ticked(first):
+    """What the axis must draw under the first tick, which is the reading without the
+    words the axis has no room for."""
+    said = readings(first)
+    return dict(said, week=said["week"].replace("Week of ", ""))
+
+
+
+
 def check_grouped(report, checks):
     # How many points each level must draw is counted from the nights the card was
     # built with, in the generator, and read from its answer here. Nothing in this
@@ -293,7 +302,9 @@ def check_grouped(report, checks):
     answer = json.loads((HERE.parents[2] / "dev/synthetic/out/resmed/long-range"
                          / "answer.json").read_text(encoding="utf-8"))
     want = answer["grouped_points"]
-    says = readings(datetime.date.fromisoformat(min(answer["cpap_days"])))
+    first = datetime.date.fromisoformat(min(answer["cpap_days"]))
+    says = readings(first)
+    draws = ticked(first)
     levels = report["levels"]
     checks.that("a period of a hundred nights starts on the daily grouping",
                 report["startsOn"] == "day", report["startsOn"])
@@ -317,6 +328,18 @@ def check_grouped(report, checks):
                     found["reads"]["label"] == ("Day" if level == "day" else "Period")
                     and found["reads"]["first"] == says[level],
                     (found["reads"], says[level]))
+        # A day's bar is that day's hours; a group's is a mean per day, and the name
+        # of the figure says which.
+        checks.that("%s calls the hours what they are" % GROUPINGS[level],
+                    found["reads"]["hours"] == ("Hours" if level == "day" else "Hours/day"),
+                    found["reads"]["hours"])
+        # The axis draws the date alone. A week says "Week of" in the readout, where
+        # there is room for it, and not under a tick, where the dates ran together.
+        axis = found["axis"]
+        checks.that("%s draws the date alone under its ticks" % GROUPINGS[level],
+                    axis["first"] == draws[level], (axis["first"], draws[level]))
+        checks.that("%s draws no more dates than it has points" % GROUPINGS[level],
+                    axis["count"] <= found["points"], (axis["count"], found["points"]))
         # A bar is centered on its point and clipped at the edge of the plotting area,
         # so the scale has to reach half a step past the first and the last point or
         # those two bars lose the half that falls outside. The step is the closest two
@@ -518,6 +541,37 @@ def check_wheel(report, checks):
     checks.that("a drag without Ctrl still zooms to the selection",
                 report["spanAfterSelect"] < report["spanBeforeSelect"],
                 (report["spanBeforeSelect"], report["spanAfterSelect"]))
+    check_swipe(report, checks)
+    checks.that("nothing threw", report["problems"] == [], report["problems"])
+
+
+def check_swipe(report, checks):
+    """The sideways two-finger swipe, inside the wheel probe's report."""
+    s = report["swipe"]
+    # A trackpad sends a swipe as a wheel event carrying deltaX. Sideways over a
+    # zoomed plot slides the window; the span it was zoomed to is kept.
+    checks.that("a sideways swipe over a zoomed plot is taken from the page",
+                s["sidewaysTaken"] is True, s)
+    checks.that("and it slides the window", s["sidewaysMovedBy"] > 0, s)
+    checks.that("keeping the span it was zoomed to", s["sidewaysKeptSpan"] is True, s)
+    checks.that("and moving every chart in the stack together",
+                s["sidewaysTogether"] is True, s)
+    # An up and down swipe is the page's, which is how a reader scrolls a plot out of
+    # the way to reach the next one.
+    checks.that("an up and down swipe is left to the page",
+                s["upDownTaken"] is False, s)
+    checks.that("and moves nothing", s["upDownMovedBy"] == 0, s)
+    # A gesture is latched to whatever scrolled first, so a sideways event arriving
+    # inside a gesture the page already has must not take it back.
+    checks.that("a sideways event inside an up and down gesture does not take it back",
+                s["heldTaken"] is False, s)
+    checks.that("and moves nothing either", s["heldMovedBy"] == 0, s)
+    # With the whole period on screen there is nowhere to slide to, so the gesture is
+    # the page's and a reader is never left swiping at a chart that cannot move.
+    checks.that("the double-click put the whole period back",
+                abs(s["unzoomedSpan"] - s["wholeSpan"]) < 1e-6, s)
+    checks.that("and a sideways swipe with nothing to slide to is left to the page",
+                s["unzoomedTaken"] is False, s)
 
 
 def check_legend(report, checks):
@@ -640,6 +694,11 @@ PROBES = [
 # Probes that need more virtual time than the rest, and why. See run_page.
 BUDGETS = {"grouped": 4000000}
 
+# A probe whose checks read something another probe recorded, so --only brings that
+# one along. Without it the later check compares against nothing and fails saying so
+# in a way that reads as a defect in the page.
+PREREQS = {"range": ["day"]}
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -660,7 +719,10 @@ def main():
 
     try:
         built = set()
-        wanted = [probe for probe in PROBES if not args.only or probe[1] in args.only]
+        asked = set(args.only or [])
+        for name in list(asked):
+            asked.update(PREREQS.get(name, []))
+        wanted = [probe for probe in PROBES if not args.only or probe[1] in asked]
         missing = set(args.only or []) - {probe[1] for probe in PROBES}
         if missing:
             sys.exit("page/run.py: no probe named %s" % ", ".join(sorted(missing)))

@@ -124,6 +124,26 @@ window.addEventListener("load", function () {
     return to - from + 1;
   }
 
+  // The chart carrying the dates is the last of the stack; the ones above it draw no
+  // time axis at all.
+  function dateChart() {
+    var nodes = document.querySelectorAll("#summary-plots .uplot");
+    var last = nodes[nodes.length - 1];
+    var found = null;
+    uPlot.sync("papvault-summary").plots.forEach(function (one) {
+      if (one.root === last) { found = one; }
+    });
+    return found;
+  }
+
+  // The dates drawn under the chart: the first of them, and how many there are.
+  function axisOf() {
+    var u = dateChart();
+    if (!u) { return null; }
+    var splits = u.axes[0].splits(u);
+    return { first: u.axes[0].values(u, splits)[0], count: splits.length };
+  }
+
   function measure() {
     var u = chartTitled("Hours Used");
     if (!u) { return null; }
@@ -144,8 +164,12 @@ window.addEventListener("load", function () {
       // reading itself for the first point.
       reads: {
         label: (u.root.querySelector(".u-legend .u-series th") || {}).textContent || null,
-        first: u.series[0].value(u, xs[0])
+        first: u.series[0].value(u, xs[0]),
+        // What the hours are called, which says whether a point is a day or a mean
+        // of days.
+        hours: u.series[1].label
       },
+      axis: axisOf(),
       sessionsTotal: sessions
         ? sessions.data[1].reduce(function (sum, one) { return sum + (one || 0); }, 0)
         : null,

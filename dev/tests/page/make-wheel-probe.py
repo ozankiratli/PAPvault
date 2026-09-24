@@ -31,6 +31,8 @@ window.addEventListener("load", function () {
     for (var i = 0; i < raw.length; i++) { bytes[i] = raw.charCodeAt(i); }
     transfer.items.add(new File([bytes], spec[0]));
   });
+  window.papvaultProblems = [];
+  window.addEventListener("error", function (e) { window.papvaultProblems.push(String(e.message)); });
   var input = document.getElementById("folder-input");
   input.files = transfer.files;
   input.dispatchEvent(new Event("change"));
@@ -104,7 +106,65 @@ window.addEventListener("load", function () {
             var spanBeforeSelect = spanOf(stack[0]);
             drag(false, box.width / 4);
             setTimeout(function () {
-              document.title = "WHEEL " + JSON.stringify({
+              // A two-finger swipe arrives as a wheel event carrying deltaX. Which of
+              // the page and the plot takes a gesture is settled on its first event
+              // and held, so each run below is started after a wait longer than the
+              // gap that ends a gesture.
+              function swipe(dx, dy) {
+                var e = new WheelEvent("wheel", {
+                  deltaX: dx, deltaY: dy, bubbles: true, cancelable: true,
+                  clientX: box.left + box.width / 2, clientY: box.top + box.height / 2
+                });
+                over.dispatchEvent(e);
+                return e.defaultPrevented;
+              }
+              var where = function () {
+                return { min: stack[0].scales.x.min, max: stack[0].scales.x.max };
+              };
+              // Read before any swiping moves the scale it measures.
+              var spanAfterSelect = spanOf(stack[0]);
+              var beforeSwipe = where();
+              var sidewaysTaken = swipe(60, 0);
+              setTimeout(function () {
+                var afterSideways = where();
+                // Read here and not in the report: by then the double-click below has
+                // put every scale back, and the answer would be about that instead.
+                var sidewaysTogether = stack.every(function (u) {
+                  return u.scales.x.min === afterSideways.min
+                    && u.scales.x.max === afterSideways.max;
+                });
+                setTimeout(function () {
+                  var upDownTaken = swipe(0, 60);
+                  var afterUpDown = where();
+                  setTimeout(function () {
+                    // The first event of this one is up and down, so the page has the
+                    // gesture; a sideways event inside it must not take it back.
+                    swipe(0, 60);
+                    var heldTaken = swipe(90, 0);
+                    setTimeout(function () {
+                      var afterHeld = where();
+                      over.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+                      setTimeout(function () {
+                        var unzoomed = where();
+                        var unzoomedTaken = swipe(60, 0);
+                        setTimeout(function () {
+                          document.title = "WHEEL " + JSON.stringify({
+                            swipe: {
+                              sidewaysTaken: sidewaysTaken,
+                              sidewaysMovedBy: afterSideways.min - beforeSwipe.min,
+                              sidewaysKeptSpan:
+                                Math.abs((afterSideways.max - afterSideways.min)
+                                  - (beforeSwipe.max - beforeSwipe.min)) < 1e-6,
+                              sidewaysTogether: sidewaysTogether,
+                              upDownTaken: upDownTaken,
+                              upDownMovedBy: afterUpDown.min - afterSideways.min,
+                              heldTaken: heldTaken,
+                              heldMovedBy: afterHeld.min - afterUpDown.min,
+                              unzoomedTaken: unzoomedTaken,
+                              unzoomedSpan: unzoomed.max - unzoomed.min,
+                              wholeSpan: whole.max - whole.min
+                            },
+                            problems: window.papvaultProblems,
                 plainScrollPrevented: plainPrevented,
                 plainChangedChart: afterPlain !== plain,
                 ctrlScrollPrevented: ctrlPrevented,
@@ -117,9 +177,15 @@ window.addEventListener("load", function () {
                 panTogether: together,
                 stoppedAtStart: stopped.min - whole.min,
                 stoppedSpan: stopped.max - stopped.min,
-                spanBeforeSelect: spanBeforeSelect,
-                spanAfterSelect: spanOf(stack[0])
-              });
+                            spanBeforeSelect: spanBeforeSelect,
+                            spanAfterSelect: spanAfterSelect
+                          });
+                        }, 200);
+                      }, 300);
+                    }, 200);
+                  }, 300);
+                }, 300);
+              }, 200);
             }, 200);
           }, 200);
         }, 200);

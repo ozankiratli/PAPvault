@@ -23,6 +23,8 @@ var PAPvaultPlots = (function () {
   // own height below the plotting area or the canvas ends through the middle of it.
   // Only a chart showing the time axis has that room for free.
   const PLOT_PADDING = [10, 18, 9, 0];
+  // A wheel gesture is one run of events; this long without one ends it.
+  const GESTURE_GAP = 200;
   const EVENT_ROW_HEIGHT = 22;
   const EVENT_OPACITY = 0.22;
   // A band is filled faintly across the plot and edged with a solid line at the time
@@ -668,28 +670,52 @@ var PAPvaultPlots = (function () {
 
     for (const chart of charts) {
       chart.papvaultSpread = spread;
+      // Which of the page and the plot a wheel gesture belongs to, and when the last
+      // event of it arrived. A gesture is latched to whatever scrolled first, so the
+      // answer is settled once, on the first event carrying movement, and held until
+      // a gap in the events ends the gesture.
+      let takes = null;
+      let lastWheel = 0;
       chart.over.addEventListener("wheel", function (event) {
-        // Plain scrolling belongs to the page, every event of it. A wheel gesture is
-        // latched to whatever scrolled first, so taking some events of one and leaving
-        // others hands the rest of that gesture to the page whatever this does later.
         // Zooming is the wheel with Ctrl held, which is also what a trackpad pinch
         // sends.
-        if (!event.ctrlKey) {
+        if (event.ctrlKey) {
+          event.preventDefault();
+          const box = chart.over.getBoundingClientRect();
+          const at = chart.posToVal(event.clientX - box.left, "x");
+          const min = chart.scales.x.min;
+          const max = chart.scales.x.max;
+          const factor = event.deltaY < 0 ? 0.8 : 1.25;
+          const from = at - (at - min) * factor;
+          const to = at + (max - at) * factor;
+          if (to - from >= options.to - options.from) {
+            spread(options.from, options.to);
+          } else {
+            slide(from, to);
+          }
+          return;
+        }
+        if (event.timeStamp - lastWheel > GESTURE_GAP) {
+          takes = null;
+        }
+        lastWheel = event.timeStamp;
+        if (takes === null) {
+          if (!event.deltaX && !event.deltaY) {
+            return;
+          }
+          // Sideways, and with somewhere left to slide to. Anything else is the
+          // page's, which is what scrolls a plot out of the way to read the next one.
+          takes = Math.abs(event.deltaX) > Math.abs(event.deltaY)
+            && (chart.scales.x.min > options.from || chart.scales.x.max < options.to);
+        }
+        if (!takes) {
           return;
         }
         event.preventDefault();
-        const box = chart.over.getBoundingClientRect();
-        const at = chart.posToVal(event.clientX - box.left, "x");
         const min = chart.scales.x.min;
         const max = chart.scales.x.max;
-        const factor = event.deltaY < 0 ? 0.8 : 1.25;
-        const from = at - (at - min) * factor;
-        const to = at + (max - at) * factor;
-        if (to - from >= options.to - options.from) {
-          spread(options.from, options.to);
-        } else {
-          slide(from, to);
-        }
+        const by = event.deltaX * (max - min) / chart.over.getBoundingClientRect().width;
+        slide(min + by, max + by);
       }, { passive: false });
 
       // Ctrl and drag slides the window instead of zooming it: the span is kept, and
@@ -800,7 +826,8 @@ var PAPvaultPlots = (function () {
   const SUMMARIES = [
     {
       key: "usage", title: "Hours Used/day", bars: true,
-      series: [{ name: "Hours used", color: "--plot-usage", of: function (day) { return day.hours; } }],
+      series: [{ name: "Hours", groupedName: "Hours/day", color: "--plot-usage",
+        of: function (day) { return day.hours; } }],
     },
     {
       key: "sessions", title: "Sessions", bars: true,
@@ -898,12 +925,15 @@ var PAPvaultPlots = (function () {
     holder.className = "plot";
     parent.append(holder);
 
+    const spellOut = options.formatPoint || options.formatDate;
     const series = [{ label: options.dateLabel || "Day", value: function (u, raw) {
-      return raw === null ? "" : options.formatDate(raw);
+      return raw === null ? "" : spellOut(raw);
     } }];
     specs.forEach(function (spec) {
       const drawn = {
-        label: spec.name,
+        // A grouped point is a mean per day where a daily one is the day itself, and
+        // a figure whose name says so carries the second name.
+        label: options.grouped && spec.groupedName ? spec.groupedName : spec.name,
         stroke: spec.literal ? spec.color : options.colorOf(spec.color),
         width: 1.5,
         points: { show: options.days.length < 40 },

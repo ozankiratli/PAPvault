@@ -474,12 +474,12 @@
     return MONTHS[when.getMonth()].slice(0, 3) + " " + when.getDate() + ", " + when.getFullYear();
   }
 
-  // What one point of a summary chart stands for, named the way its grouping names
-  // it. The axis and the cursor readout both take it from here.
-  function formatGroup(seconds) {
+  // The date one point of a summary chart begins on, written the way its grouping
+  // writes it. This is what the axis draws under each tick.
+  function formatGroupDate(seconds) {
     const when = new Date(seconds * 1000);
     if (chosenGrouping === "week") {
-      return "Week of " + when.getFullYear()
+      return when.getFullYear()
         + "/" + pad(when.getMonth() + 1) + "/" + pad(when.getDate());
     }
     if (chosenGrouping === "month") {
@@ -489,6 +489,14 @@
       return String(when.getFullYear());
     }
     return formatDay(seconds);
+  }
+
+  // The same point spelled out for the cursor readout, which has room for a word the
+  // axis has not.
+  function formatGroup(seconds) {
+    return chosenGrouping === "week"
+      ? "Week of " + formatGroupDate(seconds)
+      : formatGroupDate(seconds);
   }
 
   function quantile(sorted, fraction) {
@@ -1065,9 +1073,12 @@
       units: { pressure: unitOf(held, "pressure"), leak: unitOf(held, "leak") },
       from: points[0].seconds,
       to: points[points.length - 1].seconds,
-      formatDate: formatGroup,
+      formatDate: formatGroupDate,
+      formatPoint: formatGroup,
       // The name the cursor readout puts in front of what a point is.
       dateLabel: chosenGrouping === "day" ? "Day" : "Period",
+      // Whether a point stands for more than one night.
+      grouped: chosenGrouping !== "day",
       colorOf: colorOf,
       labelOf: labelOf,
       eventColors: eventColorMap(labels),

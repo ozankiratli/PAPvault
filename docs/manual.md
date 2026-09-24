@@ -4,7 +4,7 @@
 
 PAPvault is a browser based, free and open source, privacy friendly sleep data displayer. That allows PAP users to display their data without the need for uploading or even copying the data somewhere other than they control.
 
-- Developed by: [Ozan L. Z. Kiratli, PhD](https://ozankiratli.github.io) | *Bioinformatician*
+- Developed by: [Ozan L. Z. Kiratli, PhD](https://ozankiratli.github.io) | Bioinformatician
 - Version: {{version}}
 - License: GPL 3
 - [Source code](https://github.com/ozankiratli/PAPvault)
@@ -153,7 +153,7 @@ PAPvault sets no threshold of its own. It has no view on what counts as a large 
 
 **Over a period you can average by day, week, month or year.** The box above the charts says which, and it starts on whatever suits the length of what you picked -- daily for a few months, weekly for a year or two, and so on. **It is only a starting point.** Every choice stays available at every length, because how to look at your own data is your decision and not this page's.
 
-**What an averaged point is.** Each point is the mean of the nights inside that week, month or year. The nightly figures are themselves means, so it is a mean of means throughout. **Nights with no recording are not counted**: a week you used the machine on four nights is the average of those four, not four sevenths of a week. That matches the **Dur./day** figure, which has always been the average across the nights that hold a recording. The chart is headed **Hours Used/day** to say so.
+**What an averaged point is.** Each point is the mean of the nights inside that week, month or year. The nightly figures are themselves means, so it is a mean of means throughout. **Nights with no recording are not counted**: a week you used the machine on four nights is the average of those four, not four sevenths of a week. That matches the **Dur./day** figure, which has always been the average across the nights that hold a recording. The chart is headed **Hours Used/day** to say so, and pointing at a bar reads **Hours/day** where a point covers several nights and **Hours** where it is one.
 
 **Sessions are counted, not averaged.** They are the one figure a group adds up rather than means: a week's bar is how many times the machine ran that week, so the bars still add up to the number in the session box however you group them. Every other chart averages.
 
@@ -165,9 +165,11 @@ PAPvault sets no threshold of its own. It has no view on what counts as a large 
 
 **Oximetry is turned off in this version, and no oximetry file is opened.** ResMed records it only on the AirSense 10, and an oximeter it will work with is hard to come by, so there has been no card to test the reading against. Rather than show a figure nobody has checked, PAPvault leaves it alone until there is one. Nothing about it decides anything else either: how long a night lasted is measured from the flow and the pressure, never from an oximeter.
 
-**The plots line up and move together.** Moving the pointer over any one of them draws a line at that moment across all of them, so you can see what every other signal was doing at the same instant. Drag sideways across a plot to zoom into it; every plot zooms with it. You can also hold Ctrl and use the wheel, or pinch on a trackpad. Scrolling on its own moves the page, as it does everywhere else. Double-click to go back to the whole night.
+**The plots line up and move together.** Moving the pointer over any one of them draws a line at that moment across all of them, so you can see what every other signal was doing at the same instant. Drag sideways across a plot to zoom into it; every plot zooms with it. You can also hold Ctrl and use the wheel, or pinch on a trackpad. Scrolling up and down on its own moves the page, as it does everywhere else. Double-click to go back to the whole night.
 
 **Once you are zoomed in, hold Ctrl and drag to slide the window along** -- Command instead of Ctrl on a Mac, where Ctrl and a click is a right click. The plots move with your pointer, the way a map does, and they keep the width you zoomed to. Slide to either end of the night and they stop there rather than running off it. This works on the summary plots too, when you have a period selected rather than a single night.
+
+**On a trackpad you can also swipe sideways with two fingers to slide it**, with nothing held down. Swiping up and down still scrolls the page, and so does swiping sideways when the whole night is already on screen, since there is nowhere to slide to. Which of the two a swipe is doing is decided the moment it starts and does not change part way through, so a swipe that begins as a scroll stays one to the end.
 
 **Events keep the words your machine wrote.** The strip at the top of the stack gives each event name its own row and its own color, and the same color marks that event across every plot below, as a line at the time your machine recorded, with its duration shaded to the left of that line. **Your machine writes an event down when the event is over**, not when it starts -- it cannot know an apnea lasted twelve seconds until twelve seconds have gone by -- so the shading covers the twelve seconds **before** the time in the file, which is when the thing itself happened. The **Legend** button in the bottom right corner lists every name with its color and how many there were, and stays within reach however far down the plots you have scrolled.
 

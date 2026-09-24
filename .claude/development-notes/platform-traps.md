@@ -164,3 +164,23 @@ Two things came out of it, and they are the general form:
 
 - **An in-page counter has to be strictly inside the browser's budget**, or it is dead code and every timeout looks like a page that did not load. The budget is now per probe in `dev/tests/page/run.py`, because a probe reading a hundred nights gets through far more of a budget than one reading a single night, and raising it for everyone would hide slowness everywhere else. Raising a budget costs no wall-clock time: an idle page races through what is left of it.
 - **A counter reset inside a retry is not a counter.** The same probe reset `tries` to zero on every pass through its "pick the two days" branch, so a pick that never succeeded looped until the browser stopped the page. Reset it once the thing you were waiting for has happened, and never on the path that is still waiting.
+
+## What a trackpad actually sends, measured 2026-09-24
+
+*Measured on Z's machine with a throwaway instrument that drew nothing, after an earlier measuring tool was killed for lagging the way the thing it measured lagged. These are that machine's numbers, not every machine's.*
+
+**A sideways two-finger swipe and an up-and-down one are cleanly separated, and the first event already says which is which.** A sideways swipe carries `deltaX` with `deltaY` exactly `0.0`; an up-and-down swipe carries `deltaY` with `deltaX` exactly `0.0`. `deltaMode` is 0, so the numbers are pixels. There is no diagonal ambiguity to resolve and no ratio to tune.
+
+**The plus or minus 0.1 noise at the start of a gesture belongs to the pinch, not to the swipe.** Every pinch opened with six events of `[+0.0, -0.1]` before any real movement. A swipe's first event already carried its full delta -- `[+28.1, +0.0]` on a fast one, `[-3.5, +0.0]` on a slow one. So a pinch cannot have its direction read from its first event and a swipe can, which is what makes deciding a swipe's owner on its first event sound.
+
+**Both run at about 140 events a second**, a median gap of 7 milliseconds, pinch and swipe alike. A slow swipe was 185 events over 1483 milliseconds; a fast one 31 events over 218.
+
+**Claiming a gesture on its first event works.** The instrument called `preventDefault` on every event of a gesture it had decided was sideways, and the page did not scroll; it left up-and-down gestures alone and they reached the page.
+
+**The lesson is about the order of work, not about the numbers.** This feature was built and removed four times by reasoning about hardware nobody here has. One instrument, with no chart in it, answered in a single round what four attempts had guessed at. The agent reports written the same day ranked a design that avoids reading the axis at all as the safest, on the strength of an ambiguity these numbers show does not exist on this hardware.
+
+## Virtual time advances between timer callbacks, not inside one, 2026-09-24
+
+*Found 2026-09-24, and it narrows the entry above about the clock stopping inside a timer.* Both are true and they are about different moments. Inside one timer callback the clock does not move, so a loop that measures its own elapsed time reads 0. **Between callbacks it moves by exactly the delay that was asked for.** Measured with four wheel events dispatched from nested `setTimeout(300)` calls under `--virtual-time-budget`: their `event.timeStamp` values came back 46, 346, 646, 947.
+
+That is what makes a probe able to tell one gesture from the next. A page that ends a gesture after a gap with no event will end it correctly under virtual time, and a probe can start a fresh gesture simply by waiting longer than that gap.
