@@ -23,6 +23,7 @@
       PAPvault
       <span class="brand-version"><!-- version --></span>
     </h1>
+    <p class="topbar-chosen" id="topbar-chosen" aria-live="polite"></p>
     <div class="topbar-actions">
       <button type="button" class="icon-button tip" id="open-calendar" data-dialog="calendar-dialog" aria-label="Calendar" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
@@ -72,7 +73,8 @@
             <button type="button" class="calendar-step" id="day-next"><span class="step-arrow">&rsaquo;</span>Next day</button>
           </div>
           <div class="calendar-grid" id="calendar-grid"></div>
-          <p class="calendar-hint">Click a day, then another to select a range. Days run from 6 in the morning to 6 the next morning, so each night belongs to the date it began.</p>
+          <button type="button" class="calendar-range" id="choose-range" aria-pressed="false">Choose Range</button>
+          <p class="calendar-hint" id="calendar-hint"></p>
         </div>
       </div>
     </section>

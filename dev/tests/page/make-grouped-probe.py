@@ -193,6 +193,7 @@ window.addEventListener("load", function () {
 
   var tries = 0;
   var picked = 0;
+  var armed = false;
   (function step() {
     // Polls, not milliseconds. This has to stay inside the virtual time run.py gives
     // this probe, or the browser stops the page first and the report is never set.
@@ -204,9 +205,17 @@ window.addEventListener("load", function () {
       return;
     }
     if (!loaded()) { setTimeout(step, 25); return; }
+    if (!armed) {
+      // A range is asked for before its two days are clicked. Pressed once, and not
+      // on every retry below, since pressing it again gives the range up.
+      document.getElementById("choose-range").click();
+      armed = true;
+      setTimeout(step, 25);
+      return;
+    }
     if (picked < 2) {
-      // One click each, and only the one that failed is tried again. A third click on
-      // the calendar starts the selection over, so retrying the pair would fight the
+      // One click each, and only the one that failed is tried again. A click on a day
+      // outside a range shows that day alone, so retrying the pair would fight the
       // page rather than wait for it. The counter is reset once both have landed and
       // not before, or a pick that never succeeds loops silently until the browser
       // stops the page, and the report says nothing at all.

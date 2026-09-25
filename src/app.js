@@ -72,6 +72,10 @@
   const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
   const grid = document.getElementById("calendar-grid");
+  const rangeButton = document.getElementById("choose-range");
+  const calendarHint = document.getElementById("calendar-hint");
+  const DAY_HINT = "Click a day to see that night. Days run from 6 in the morning to 6"
+    + " the next morning, so each night belongs to the date it began.";
   const monthLabel = document.getElementById("calendar-month");
   const dayPrev = document.getElementById("day-prev");
   const dayNext = document.getElementById("day-next");
@@ -128,7 +132,11 @@
   let shown = new Date(currentDay.getFullYear(), currentDay.getMonth(), 1);
   let start = currentDay;
   let end = currentDay;
-  let pending = false;
+  // Whether the calendar has been asked for a range, and the first end of one once it
+  // has been clicked.
+  let ranging = false;
+  let rangeFrom = null;
+  let rangeMade = false;
 
   // What reading the chosen folder found, and its sessions keyed by CPAP day.
   let card = null;
@@ -259,20 +267,72 @@
     return Math.round((last - first) / 86400000) + 1;
   }
 
+  // A click on a day shows that day. A range is asked for first, with the button
+  // below the grid, and the two clicks after that are its ends in either order.
   function choose(day) {
-    if (!pending) {
+    if (!ranging) {
       start = day;
       end = day;
-      pending = true;
-    } else {
-      if (day < start) {
-        start = day;
-      } else {
-        end = day;
-      }
-      pending = false;
+      render();
+      return;
     }
+    if (!rangeFrom) {
+      rangeFrom = day;
+      rangeMade = false;
+      sayHint();
+      render();
+      return;
+    }
+    // The same day again takes the pick back, rather than making a range of one day.
+    if (day.getTime() === rangeFrom.getTime()) {
+      rangeFrom = null;
+      sayHint();
+      render();
+      return;
+    }
+    start = day < rangeFrom ? day : rangeFrom;
+    end = day < rangeFrom ? rangeFrom : day;
+    rangeFrom = null;
+    rangeMade = true;
+    sayHint();
     render();
+  }
+
+  // Only the button turns this on or off, so a range can be followed by another
+  // without asking again.
+  function setRanging(on) {
+    ranging = on;
+    rangeFrom = null;
+    rangeMade = false;
+    rangeButton.setAttribute("aria-pressed", on ? "true" : "false");
+    rangeButton.classList.toggle("on", on);
+    sayHint();
+    sayChosen();
+    // The grid marks nothing while a range is being asked for, so it is drawn again.
+    // Only the grid: what is selected has not changed, so the plots have not either.
+    renderCalendar();
+  }
+
+  // The days the grid marks, or null for none. Asking for a range puts the selection
+  // that was there aside: the grid then marks what is being picked now, which is
+  // nothing until the first day is clicked, that day while the second is awaited, and
+  // the range itself once both are in.
+  function markedSpan() {
+    if (!ranging || rangeMade) {
+      return [start, end];
+    }
+    return rangeFrom ? [rangeFrom, rangeFrom] : null;
+  }
+
+  // Which of the three things the calendar is waiting for.
+  function sayHint() {
+    if (!ranging) {
+      calendarHint.textContent = DAY_HINT;
+      return;
+    }
+    calendarHint.textContent = rangeFrom
+      ? "Now pick the last day of the range."
+      : "Pick the first day of the range, then the last.";
   }
 
   // The day a step of one lands on, or null where there is none. With a card loaded
@@ -304,7 +364,10 @@
     }
     start = target;
     end = target;
-    pending = false;
+    // A step is one night, so any half-built range is given up; the button is left
+    // as the reader set it.
+    rangeFrom = null;
+    sayHint();
     shown = new Date(target.getFullYear(), target.getMonth(), 1);
     render();
   }
@@ -1184,6 +1247,7 @@
       cells.push(document.createElement("span"));
     }
 
+    const marked = markedSpan();
     const daysInMonth = new Date(shown.getFullYear(), shown.getMonth() + 1, 0).getDate();
     for (let date = 1; date <= daysInMonth; date++) {
       const day = new Date(shown.getFullYear(), shown.getMonth(), date);
@@ -1199,7 +1263,8 @@
       if (daysWithData.has(dayKey(day))) {
         button.classList.add("has-data");
       }
-      const inSelection = t >= start.getTime() && t <= end.getTime();
+      const inSelection = marked !== null
+        && t >= marked[0].getTime() && t <= marked[1].getTime();
       if (inSelection) {
         button.classList.add(t === start.getTime() || t === end.getTime() ? "selected" : "in-range");
       }
@@ -1226,7 +1291,32 @@
   function render() {
     renderCalendar();
     renderPeriod();
+    sayChosen();
   }
+
+  // What is selected, in words, in the bar. While a range is being picked it says
+  // which day is wanted rather than naming a selection that is half made.
+  function sayChosen() {
+    const chosen = document.getElementById("topbar-chosen");
+    // Half way through picking a range there is no selection to name, so it says how
+    // far the picking has got. What to do next is under the button, not here.
+    if (ranging && rangeFrom) {
+      chosen.textContent = dayKey(rangeFrom) + " to ...";
+      chosen.classList.add("waiting");
+      return;
+    }
+    chosen.classList.remove("waiting");
+    chosen.textContent = start.getTime() === end.getTime()
+      ? dayKey(start)
+      : dayKey(start) + " to " + dayKey(end) + ", " + dayCount(start, end) + " days";
+  }
+
+  // Pressed once it waits for two days; pressed again it gives up on the range and
+  // goes back to a click meaning one day.
+  rangeButton.addEventListener("click", function () {
+    setRanging(!ranging);
+  });
+  setRanging(false);
 
   dayPrev.addEventListener("click", function () {
     stepDay(-1);
@@ -1483,7 +1573,8 @@
       shown = new Date(last.getFullYear(), last.getMonth(), 1);
       start = last;
       end = last;
-      pending = false;
+      rangeFrom = null;
+      sayHint();
     }
     render();
   }

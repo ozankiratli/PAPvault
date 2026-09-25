@@ -183,6 +183,26 @@ body {
   stroke-width: 1.5;
 }
 
+/* What is selected, between the name and the buttons. It is the only place the
+   selection is written in words, so it says what the calendar is showing. */
+.topbar-chosen {
+  flex: 1 1 auto;
+  margin: 0;
+  text-align: center;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent-strong);
+}
+
+.topbar-chosen:empty {
+  display: none;
+}
+
+.topbar-chosen.waiting {
+  font-weight: 500;
+  color: var(--muted);
+}
+
 .topbar-actions {
   display: flex;
   flex-wrap: wrap;
@@ -514,6 +534,30 @@ button:disabled {
   margin-left: -2px;
   border-radius: 50%;
   background: currentColor;
+}
+
+.calendar-range {
+  display: block;
+  width: 100%;
+  margin-top: 0.6rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.calendar-range:hover {
+  border-color: var(--accent-strong);
+}
+
+.calendar-range.on {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+  color: #ffffff;
 }
 
 .calendar-hint {

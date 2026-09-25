@@ -89,7 +89,7 @@ PAPvault shows what your PAP machine wrote to its SD card. It runs in your brows
 
 1. Put the card in your computer, or use a copy of it.
 2. Open **Open Folder** in the top bar, then choose the card's folder or drag it onto the box.
-3. Pick a day in the calendar. Click a second day for a range.
+3. Pick a day in the calendar. For a range, press **Choose Range** under the grid first, then click the two days.
 
 Nothing is uploaded, because there is nowhere to upload it to. PAPvault opens the folder and reads it here, in your browser.
 
@@ -102,6 +102,12 @@ PAPvault then tells you what it found: how many sessions are on the card, which 
 **Previous day** and **Next day**, above the calendar's grid, step between the nights your card holds rather than between calendar dates, so they never land on a night with nothing on it. They go dead at the first and last night on the card, and each step selects that one night on its own, clearing any range you had.
 
 The arrows beside the month name, and the month picker you get by clicking the month name itself, move the calendar without touching what you have selected. So you can go looking for a night in another month, or another year, and what is on screen stays as it was until you pick a day.
+
+**Clicking a day always shows that one night**, whatever was selected before, so you can read through your nights a click at a time.
+
+**A range is asked for rather than stumbled into.** Press **Choose Range** under the grid and the next two days you click become its ends, in either order. The calendar clears while it waits, so what is marked on it is always what you are picking now and never what you had before. Click the same day twice and the pick is taken back, and you can start again somewhere else. The button stays on, so you can pick another range straight after, and another; **press it again when you want a click to mean one night.** Nothing you had is lost while you decide: the plots stay as they were until both ends are in.
+
+**What is selected is written along the top of the page**, between the name and the buttons, as a date or as two dates and a day count. While you are half way through picking a range it reads as far as you have got. The line under **Choose Range** says which day the calendar wants next.
 
 Pick one day and you get that night in detail. Pick a range and you get a figure per night across it.
 

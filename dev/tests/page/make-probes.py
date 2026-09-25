@@ -206,6 +206,8 @@ window.addEventListener("load", function () {
     if (++tries > 12000) { document.title = "GAVE UP " + document.getElementById("summary-body").textContent.slice(0, 80); return; }
     if (!loaded()) { setTimeout(step, 25); return; }
     if (CLICKS.length) {
+      // Two days are a range, and a range is asked for before it is clicked.
+      if (CLICKS.length > 1) { document.getElementById("choose-range").click(); }
       CLICKS.forEach(function (iso) {
         var cell = document.querySelector('.calendar-day[aria-label="' + iso + '"]');
         if (cell) { cell.click(); }
