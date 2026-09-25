@@ -37,6 +37,9 @@ var PAPvaultPlots = (function () {
   // pinch with a few tenths of a unit before the fingers have moved.
   const ZOOM_TRACE = 0.5;
   const EVENT_ROW_HEIGHT = 22;
+  // The narrowest a chart is ever drawn. Below it the card scrolls sideways rather
+  // than the plot growing narrower still.
+  const PLOT_LEAST = 240;
   const EVENT_OPACITY = 0.22;
   // A band is filled faintly across the plot and edged with a solid line at the time
   // the file recorded, which is where the event ended, so a short event is still
@@ -835,7 +838,7 @@ var PAPvaultPlots = (function () {
 
   // Draws the stack into an empty container and hands back what it could not draw.
   function show(container, given) {
-    const width = Math.max(container.clientWidth, 320);
+    const width = Math.max(container.clientWidth, PLOT_LEAST);
     const names = [];
     for (const event of given.events) {
       if (names.indexOf(event.text) === -1) {
@@ -886,7 +889,7 @@ var PAPvaultPlots = (function () {
         return chart.title;
       }),
       resize: function () {
-        const now = Math.max(container.clientWidth, 320);
+        const now = Math.max(container.clientWidth, PLOT_LEAST);
         for (const chart of built) {
           chart.setSize({ width: now, height: chart.height });
         }
@@ -1057,9 +1060,12 @@ var PAPvaultPlots = (function () {
     if (!names.length) {
       return null;
     }
-    // A lower floor than the stacks use, since this chart lives in the narrow
-    // summary card rather than the wide plots card.
-    const width = Math.max(container.clientWidth, 240);
+    // The width the card gives it.
+    function widthOf() {
+      return Math.max(container.clientWidth, PLOT_LEAST);
+    }
+
+    const width = widthOf();
     // In a narrow card the names may not take more than half of it, or there is
     // no room left for the bars they label.
     // Measured against what is drawn, not against the word the file carried, or a
@@ -1147,7 +1153,7 @@ var PAPvaultPlots = (function () {
 
     return {
       resize: function () {
-        chart.setSize({ width: Math.max(container.clientWidth, 320), height: chart.height });
+        chart.setSize({ width: widthOf(), height: chart.height });
       },
       destroy: function () {
         chart.destroy();
@@ -1172,7 +1178,7 @@ var PAPvaultPlots = (function () {
   // The summary stack: one point or bar per CPAP day, or per group of them, in the
   // chosen period.
   function showSummary(container, given) {
-    const width = Math.max(container.clientWidth, 320);
+    const width = Math.max(container.clientWidth, PLOT_LEAST);
     // The scale reaches half a step past the first and last point, which is what a
     // bar centered on either of them needs to be drawn whole. A single point has no
     // step and stands for a day.
@@ -1209,7 +1215,7 @@ var PAPvaultPlots = (function () {
     return {
       drawn: drawn,
       resize: function () {
-        const now = Math.max(container.clientWidth, 320);
+        const now = Math.max(container.clientWidth, PLOT_LEAST);
         for (const chart of built) {
           chart.setSize({ width: now, height: chart.height });
         }

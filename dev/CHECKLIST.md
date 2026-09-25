@@ -152,11 +152,27 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 
 ## `narrow-calendar` -- the calendar is reachable on a narrow screen
 
-**Protects:** that below 650 pixels wide the calendar moves into a dialog rather than disappearing, and keeps its selection.
+**Protects:** that below 1500 pixels wide the calendar moves into a dialog rather than disappearing, and keeps its selection.
 
-**How:** select a range on a wide window; narrow the window below 650 pixels; open Calendar from the top bar; widen the window again.
+**How:** select a range on a window wider than 1500 pixels; narrow it below 1500; open Calendar from the top bar; widen it again. A window cannot be dragged below about 500 pixels, so use the browser's responsive mode (ctrl+shift+m) for anything narrower.
 
-**Failure:** below 650 pixels the Calendar button is missing or the calendar still shows in the card; the dialog's calendar does not show the range selected before; or after widening, the calendar is not back in the card.
+**Failure:** below 1500 pixels the Calendar button is missing or the calendar still shows in its own column; the dialog's calendar does not show the range selected before; or after widening, the calendar is not back in the card.
+
+## `narrow-columns` -- the page loses columns rather than content
+
+**Protects:** that the layout changes shape at the widths it is meant to, and that nothing is pushed off the side at any of them.
+
+**How:** in responsive mode, look at the page with a day selected at 1600, 1400, 1000, 800, 600, 400 and 320 pixels. At 1600 expect three columns; below 1500 two, with the calendar in the top bar; below 1200 the summary above the plots; below 850 the selected day on its own row in the bar. At every width check there is no sideways scrollbar along the bottom, and that the plots grow narrower as the window does.
+
+**Failure:** a column stays past its width or goes early; a card or a plot reaches past the right edge and a horizontal scrollbar appears; the plots stop shrinking while there is still room to shrink into; the top bar's date overlaps the buttons; or a chart is drawn narrower than 240 pixels.
+
+## `narrow-menu` -- the top bar's buttons stay reachable on a phone
+
+**Protects:** that below 500 pixels every button in the bar is still reachable, from a menu, and that the menu can be closed four ways.
+
+**How:** in responsive mode at 360 pixels, with a card read, open the menu with the button of three lines. Check every action is listed with its name in words -- Calendar, Open Folder, Manual, Settings, and the theme -- and that picking one closes the menu and does what it says. Open it again and close it with the cross, then with Escape, then by clicking the page behind it. Widen past 500 and check the buttons are back in the bar as icons, with no menu button and no cross among them.
+
+**Failure:** the menu button shows above 500 pixels or the cross appears in the bar; an action is missing from the menu or has no words beside it; the menu does not close on a pick, the cross, Escape or an outside click; picking an action closes the menu but does not open its dialog; or the menu opens somewhere other than over the whole page.
 
 ## `card-read` -- reading a folder finds the nights it holds, and opens nothing else
 

@@ -41,7 +41,7 @@ def find_browser(named):
     sys.exit("page/run.py: no chromium or chrome on PATH; pass --browser")
 
 
-def run_page(browser, profile, page, budget=400000):
+def run_page(browser, profile, page, budget=400000, width=1500):
     """The page's document.title after it has finished, as text.
 
     The budget is virtual milliseconds, not real ones: a timer that is due fires at
@@ -56,7 +56,7 @@ def run_page(browser, profile, page, budget=400000):
     profile.mkdir(parents=True)
     finished = subprocess.run(
         [browser, "--headless=new", "--user-data-dir=" + str(profile), "--v=0",
-         "--virtual-time-budget=%d" % budget, "--window-size=1500,1200",
+         "--virtual-time-budget=%d" % budget, "--window-size=%d,1200" % width,
          "--dump-dom", "file://" + str(page)],
         capture_output=True, text=True, timeout=TIMEOUT,
         env={"PATH": "/usr/bin:/bin:/usr/local/bin", "TZ": "America/New_York",
@@ -685,6 +685,91 @@ def check_step(report, checks):
                 (prev["wordsOffCentre"], on["wordsOffCentre"]))
 
 
+# What each width the layout steps at is meant to show. The window is the runner's,
+# so the same probe page reports a different shape in each of these runs.
+LAYOUTS = {
+    1600: {"columns": 3, "calendar": "card", "hamburger": False, "chosenBelow": False},
+    1400: {"columns": 2, "calendar": "dialog", "hamburger": False, "chosenBelow": False},
+    800: {"columns": 1, "calendar": "dialog", "hamburger": False, "chosenBelow": True},
+    500: {"columns": 1, "calendar": "dialog", "hamburger": True, "chosenBelow": True},
+}
+
+# The narrowest a chart is drawn, which is PLOT_LEAST in src/plots.js.
+FLOOR = 240
+
+
+def check_narrow(report, checks):
+    want = LAYOUTS.get(report["view"])
+    checks.that("the probe ran at a width the layout has a step for",
+                want is not None, report["view"])
+    if not want:
+        return
+    where = " at %d" % report["view"]
+    checks.that("the cards stand in the columns this width calls for" + where,
+                report["columns"] == want["columns"], report["columns"])
+    checks.that("the calendar is where this width puts it" + where,
+                report["calendarIn"] == want["calendar"], report["calendarIn"])
+    checks.that("the calendar's card and the bar's button are never both there" + where,
+                report["calendarCardHidden"] != report["calendarButtonHidden"],
+                (report["calendarCardHidden"], report["calendarButtonHidden"]))
+    checks.that("the calendar card shows only when the calendar is in it" + where,
+                report["calendarCardHidden"] == (report["calendarIn"] == "dialog"),
+                (report["calendarCardHidden"], report["calendarIn"]))
+    checks.that("the menu button shows only where the buttons leave the bar" + where,
+                (report["hamburger"] != "none") == want["hamburger"], report["hamburger"])
+    checks.that("the menu's own close button keeps it company" + where,
+                (report["closeButton"] != "none") == want["hamburger"], report["closeButton"])
+    checks.that("what is selected takes its own row only on a narrow bar" + where,
+                report["chosenBelowBrand"] == want["chosenBelow"],
+                (report["chosenBelowBrand"], report["barHeight"]))
+    checks.that("nothing is pushed off the side" + where,
+                report["overflow"] <= 0, report["overflow"])
+    checks.that("the plots are drawn" + where, report["charts"] > 0, report["charts"])
+    checks.that("no chart is drawn narrower than the floor" + where,
+                report["narrowest"] >= FLOOR, report["narrowest"])
+    if not want["hamburger"]:
+        checks.that("and there is no menu to open" + where, report["menu"] is None)
+        return
+    menu = report["menu"]
+    checks.that("the menu opens on the button", menu["opened"] is True)
+    checks.that("and says so to a screen reader", menu["expanded"] == "true")
+    checks.that("the menu is anchored to every edge of the window",
+                menu["fixed"] == "fixed" and set(menu["inset"]) == {"0px"},
+                (menu["fixed"], menu["inset"]))
+    checks.that("and it is drawn across the whole of it",
+                menu["covers"][0] >= report["view"] - 20
+                and menu["covers"][1] >= report["height"] - 20,
+                (menu["covers"], report["view"], report["height"]))
+    checks.that("every button in the bar is in it", menu["items"] == 5, menu["items"])
+    checks.that("and each one is named in words there",
+                all(len(name) > 4 for name in menu["named"]), menu["named"])
+    checks.that("Escape closes it", menu["afterEscape"] is False)
+    checks.that("the cross closes it", menu["afterCross"] is False)
+    checks.that("a click outside closes it", menu["afterOutside"] is False)
+    checks.that("picking an action closes it", menu["afterPick"] is False)
+    checks.that("and the action it was asked for happens", menu["manualOpen"] is True)
+
+
+def check_floor(report, checks):
+    for what, runs in [("the day's plots", report["stack"]),
+                       ("the summary's events", report["events"])]:
+        checks.that("%s are drawn at five widths" % what, len(runs) == 5, runs)
+        checks.that("%s never go below the floor" % what,
+                    all(canvas >= FLOOR for _, canvas in runs), runs)
+        checks.that("%s follow the card while there is room" % what,
+                    all(abs(canvas - room) <= 1 for room, canvas in runs if room >= FLOOR),
+                    runs)
+        checks.that("%s stop at the floor when there is not" % what,
+                    all(canvas == FLOOR for room, canvas in runs if room < FLOOR),
+                    runs)
+        narrowed = [canvas for _, canvas in runs]
+        checks.that("%s get narrower as the card does" % what,
+                    narrowed == sorted(narrowed, reverse=True) and narrowed[0] > narrowed[-1],
+                    narrowed)
+        checks.that("and %s had their card squeezed past the floor" % what,
+                    any(room < FLOOR for room, _ in runs), runs)
+
+
 # Each entry: the builder beside this file, the page it writes, the word its report
 # starts with, and what to assert. "day" and "range" come from one builder.
 PROBES = [
@@ -703,7 +788,17 @@ PROBES = [
     ("make-landing-probe.py", "landing", "LANDING", check_landing),
     ("make-step-probe.py", "step", "STEP", check_step),
     ("make-marker-probe.py", "marker", "MARKER", check_marker),
+    ("make-narrow-probe.py", "three-columns", "NARROW", check_narrow),
+    ("make-narrow-probe.py", "two-columns", "NARROW", check_narrow),
+    ("make-narrow-probe.py", "stacked", "NARROW", check_narrow),
+    ("make-narrow-probe.py", "menu", "NARROW", check_narrow),
+    ("make-floor-probe.py", "floor", "FLOOR", check_floor),
 ]
+
+# The window a probe is given, where the default of 1500 is not what it is about.
+# Nothing below 500: headless Chromium clamps a window to that, so a narrower number
+# here would be measuring the clamp rather than the page.
+WINDOWS = {"three-columns": 1600, "two-columns": 1400, "stacked": 800, "menu": 500}
 
 # Probes that need more virtual time than the rest, and why. See run_page.
 BUDGETS = {"grouped": 4000000}
@@ -747,7 +842,7 @@ def main():
                 built.add(builder)
             print("  %s" % name)
             title = run_page(browser, profile, workshop / (name + ".html"),
-                             BUDGETS.get(name, 400000))
+                             BUDGETS.get(name, 400000), WINDOWS.get(name, 1500))
             if name == "strip":
                 check_strip(payload(title, "STRIP"), checks)
             else:

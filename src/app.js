@@ -1685,22 +1685,64 @@
   const calendarDialog = document.getElementById("calendar-dialog");
   const calendarButton = document.getElementById("open-calendar");
   const narrow = window.matchMedia("(max-width: 649.98px)");
+  const roomy = window.matchMedia("(min-width: 1500px)");
 
-  function placeCalendar() {
+  function sayNarrow() {
     root.classList.toggle("narrow", narrow.matches);
-    calendarButton.hidden = !narrow.matches;
-    calendarCard.hidden = narrow.matches;
-    if (narrow.matches) {
-      dialogSlot.append(calendar);
-    } else {
+  }
+
+  // Moves the calendar between its column on the page and the dialog the top bar
+  // opens, and shows whichever way in it the reader has.
+  function placeCalendar() {
+    root.classList.toggle("docked", !roomy.matches);
+    calendarButton.hidden = roomy.matches;
+    calendarCard.hidden = !roomy.matches;
+    if (roomy.matches) {
       if (calendarDialog.open) {
         calendarDialog.close();
       }
       cardSlot.append(calendar);
+    } else {
+      dialogSlot.append(calendar);
     }
   }
 
-  narrow.addEventListener("change", placeCalendar);
+  narrow.addEventListener("change", sayNarrow);
+  roomy.addEventListener("change", placeCalendar);
+
+  const menuButton = document.getElementById("open-menu");
+  const actions = document.getElementById("topbar-actions");
+  const handy = window.matchMedia("(max-width: 500px)");
+
+  // Opens and closes the menu the bar's buttons hang in on a narrow screen.
+  function showMenu(on) {
+    root.classList.toggle("menu-open", on);
+    menuButton.setAttribute("aria-expanded", on ? "true" : "false");
+  }
+
+  menuButton.addEventListener("click", function () {
+    showMenu(!root.classList.contains("menu-open"));
+  });
+
+  actions.addEventListener("click", function () {
+    showMenu(false);
+  });
+
+  document.addEventListener("click", function (event) {
+    if (!menuButton.contains(event.target) && !actions.contains(event.target)) {
+      showMenu(false);
+    }
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      showMenu(false);
+    }
+  });
+
+  handy.addEventListener("change", function () {
+    showMenu(false);
+  });
 
   // The height the sticky cards start below. It is measured rather than written
   // down, since the bar wraps to two rows on a narrow screen.
@@ -1720,9 +1762,13 @@
       if (summaryView) {
         summaryView.resize();
       }
+      if (eventView) {
+        eventView.resize();
+      }
     }, 150);
   });
 
+  sayNarrow();
   placeCalendar();
   render();
   app.hidden = false;

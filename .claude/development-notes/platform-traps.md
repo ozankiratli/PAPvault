@@ -184,3 +184,22 @@ Two things came out of it, and they are the general form:
 *Found 2026-09-24, and it narrows the entry above about the clock stopping inside a timer.* Both are true and they are about different moments. Inside one timer callback the clock does not move, so a loop that measures its own elapsed time reads 0. **Between callbacks it moves by exactly the delay that was asked for.** Measured with four wheel events dispatched from nested `setTimeout(300)` calls under `--virtual-time-budget`: their `event.timeStamp` values came back 46, 346, 646, 947.
 
 That is what makes a probe able to tell one gesture from the next. A page that ends a gesture after a gap with no event will end it correctly under virtual time, and a probe can start a fresh gesture simply by waiting longer than that gap.
+
+## Headless Chromium will not give a window narrower than 500 css pixels, 2026-09-24
+
+`--window-size=320,900` is accepted, reports no error, and lays the page out at 500. A one-line page that writes `window.innerWidth` into an attribute returns 500 for 320, 360 and 400, and 700 for 700. `--headless=new` does the same, and so does adding `--force-device-scale-factor`. A screenshot taken at the same time *is* the size asked for, which is what makes it convincing: the picture is 360 pixels wide and shows a 500 pixel layout cropped, so a narrow-screen bug looks reproduced when nothing narrow has been rendered.
+
+Anything measured below 500 pixels this way is measuring the clamp. The way round it is the debug protocol, which has no such floor:
+
+```
+chromium --headless --remote-debugging-port=<port> --user-data-dir=<throwaway> about:blank
+# then, over the websocket that http://127.0.0.1:<port>/json gives:
+Emulation.setDeviceMetricsOverride {"width": 320, "height": 800, "deviceScaleFactor": 1, "mobile": false}
+Page.navigate ...
+Runtime.evaluate ...
+Page.captureScreenshot {"captureBeyondViewport": false}
+```
+
+That needs no package: the handshake and a masked text frame are about sixty lines of the Python standard library. The instrument that did it lived in a scratch directory and was thrown away, like the trackpad one.
+
+**The browser you are sitting in front of has the same floor, for a different reason.** A desktop window cannot be dragged below roughly 500 pixels either, so narrowing the window is not a way to see a phone-width layout at all. Responsive mode (ctrl+shift+m) is, and it was what settled a narrow-screen report here that measurement had already said was not reproducible.

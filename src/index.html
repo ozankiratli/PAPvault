@@ -24,7 +24,13 @@
       <span class="brand-version"><!-- version --></span>
     </h1>
     <p class="topbar-chosen" id="topbar-chosen" aria-live="polite"></p>
-    <div class="topbar-actions">
+    <button type="button" class="topbar-menu icon-button tip" id="open-menu" aria-label="Menu" aria-expanded="false" aria-controls="topbar-actions">
+      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+    <div class="topbar-actions" id="topbar-actions">
+      <button type="button" class="menu-close icon-button tip" id="close-menu" aria-label="Close Menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
       <button type="button" class="icon-button tip" id="open-calendar" data-dialog="calendar-dialog" aria-label="Calendar" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
       </button>
