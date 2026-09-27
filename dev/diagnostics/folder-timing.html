@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAPvault folder timing</title>
+<!--
+An instrument, not part of the application. It draws no chart, reads no card and
+computes nothing about a recording: it times the steps a browser takes between a
+folder being picked and the files being usable, so that the waiting a phone shows
+can be attributed to one of them rather than guessed at.
+
+What it can see, and what it cannot. The moment a person taps "use this folder" is
+not reported to a page. What is reported is that the page was hidden while the
+system's picker was in front of it, and became visible again when the picker closed,
+so the interval from becoming visible to the change event is the browser's own work:
+walking the folder, making a File for each entry, and putting up whatever prompt it
+puts up. The clock on screen keeps running through all of it, so the moment a prompt
+appears can be read off it by hand.
+
+Everything below the timings is done only when a button is pressed, so no measurement
+pays for another one.
+-->
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; padding: 1rem; font: 16px/1.5 system-ui, sans-serif; }
+  h1 { font-size: 1.2rem; margin: 0 0 0.25rem; }
+  p.note { margin: 0 0 1rem; opacity: 0.75; font-size: 0.9rem; }
+  button { font: inherit; padding: 0.7rem 1rem; margin: 0 0.5rem 0.5rem 0; border-radius: 8px; }
+  #clock { font-size: 2rem; font-variant-numeric: tabular-nums; margin: 0.5rem 0; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
+  th, td { border-bottom: 1px solid currentColor; padding: 0.3rem; text-align: left; vertical-align: top; }
+  td.n { text-align: right; font-variant-numeric: tabular-nums; }
+  textarea { width: 100%; height: 9rem; font: 12px monospace; }
+  .row { margin: 1rem 0; }
+</style>
+</head>
+<body>
+<h1>Folder timing</h1>
+<p class="note">Times what the browser does with a folder, and nothing else. Nothing is uploaded anywhere: this page has no network code in it.</p>
+
+<div class="row">
+  <button id="pick-folder">Pick a folder</button>
+  <button id="pick-files">Pick files instead</button>
+  <button id="pick-listing">Ask for a listing only</button>
+</div>
+<p class="note" id="support"></p>
+
+<div id="clock">--</div>
+<p class="note" id="state">Idle. Press a button, choose, and watch the clock -- note what it reads when a prompt appears.</p>
+
+<div class="row">
+  <p class="note"><b>One of these two per pick.</b> Touching a file's size once makes it
+  cheap afterwards, so the second button pressed measures the cache and not the browser.
+  Pick the folder again for the next one. Names and paths are read on arrival, since
+  both measured free.</p>
+  <button id="walk-size">Sizes only</button>
+</div>
+
+<div class="row">
+  <button id="open10">Open 10 headers</button>
+  <button id="open50">Open 50 headers</button>
+  <button id="openall">Open every header</button>
+  <button id="batch8">Open every header, 8 at a time</button>
+  <button id="size-after">Sizes after reading</button>
+</div>
+
+<table id="runs">
+  <thead><tr><th>step</th><th>ms</th><th>detail</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<div class="row">
+  <button id="clear">Clear</button>
+  <p class="note">Copy the text below, or send a screenshot.</p>
+  <textarea id="plain" readonly></textarea>
+</div>
+
+<input type="file" id="folder-input" webkitdirectory multiple hidden>
+<input type="file" id="files-input" multiple hidden>
+
+<script>
+(function () {
+  "use strict";
+  var folderInput = document.getElementById("folder-input");
+  var filesInput = document.getElementById("files-input");
+  var clock = document.getElementById("clock");
+  var state = document.getElementById("state");
+  var rows = document.querySelector("#runs tbody");
+  var plain = document.getElementById("plain");
+
+  var marks = {};
+  var waiting = false;
+  var ticking = 0;
+  var chosen = [];
+
+  function now() { return Math.round(performance.now()); }
+
+  function say(step, ms, detail) {
+    var line = document.createElement("tr");
+    var one = document.createElement("td");
+    var two = document.createElement("td");
+    var three = document.createElement("td");
+    one.textContent = step;
+    two.textContent = ms === null ? "" : String(ms);
+    two.className = "n";
+    three.textContent = detail || "";
+    line.append(one, two, three);
+    rows.append(line);
+    plain.value += step + "\t" + (ms === null ? "" : ms) + "\t" + (detail || "") + "\n";
+  }
+
+  // A clock the person can read while the browser is busy, since the moment a
+  // prompt appears is not reported to the page.
+  function tick() {
+    var since = now() - marks.click;
+    clock.textContent = (since / 1000).toFixed(1) + " s";
+  }
+
+  function start(which) {
+    marks = { click: now() };
+    waiting = true;
+    walked = false;
+    chosen = [];
+    plain.value += "\n== " + which + " at " + new Date().toTimeString().slice(0, 8) + "\n";
+    say("--- " + which, null, navigator.userAgent.slice(0, 80));
+    state.textContent = "Waiting for the browser. Note what the clock reads when a prompt appears.";
+    window.clearInterval(ticking);
+    ticking = window.setInterval(tick, 100);
+  }
+
+  document.getElementById("pick-folder").addEventListener("click", function () {
+    start("folder pick (webkitdirectory)");
+    folderInput.click();
+  });
+
+  document.getElementById("pick-files").addEventListener("click", function () {
+    start("file pick (multiple)");
+    filesInput.click();
+  });
+
+  // What this browser offers besides the file input. showDirectoryPicker hands back a
+  // handle that is walked a name at a time, with a file made only when one is asked
+  // for, which is the shape a card wants: the names alone say which day every file
+  // belongs to. It is offered only in a secure context, so over plain http on a local
+  // address it is absent whether or not the browser has it, and the page says which of
+  // the two it is looking at.
+  document.getElementById("support").textContent =
+    "showDirectoryPicker: " + ("showDirectoryPicker" in window ? "offered" : "not offered")
+    + " | secure context: " + (window.isSecureContext ? "yes" : "no")
+    + " | webkitEntries: " + ("webkitEntries" in folderInput ? "there" : "absent");
+
+  // The listing, and then what a file costs once a name has been chosen from it.
+  document.getElementById("pick-listing").addEventListener("click", async function () {
+    if (!("showDirectoryPicker" in window)) {
+      say("listing", null, window.isSecureContext
+        ? "this browser does not offer showDirectoryPicker"
+        : "not offered here: the page is not in a secure context. Try it over https");
+      return;
+    }
+    var root;
+    start("listing only (showDirectoryPicker)");
+    try {
+      root = await window.showDirectoryPicker();
+    } catch (error) {
+      waiting = false;
+      window.clearInterval(ticking);
+      say("listing", null, "cancelled or refused: " + error.name);
+      return;
+    }
+    waiting = false;
+    window.clearInterval(ticking);
+    say("handle in hand", now() - marks.click, "nothing has been listed yet");
+    var at = now();
+    var names = [];
+    var folders = 0;
+    async function into(handle, path) {
+      for await (const entry of handle.values()) {
+        if (entry.kind === "directory") {
+          folders++;
+          await into(entry, path + entry.name + "/");
+        } else {
+          names.push(path + entry.name);
+        }
+      }
+    }
+    await into(root, "");
+    say("listing the whole card, names only", now() - at,
+        names.length + " files, " + folders + " folders");
+    var edf = names.filter(function (name) { return /\.edf$/i.test(name); });
+    say("of which edf", null, String(edf.length));
+    // One day's files, which is what a range of dates would ask for. A file sitting
+    // at the root of what was picked belongs to the folder named by the empty string,
+    // so the grouping is on the whole path less the file's own name and nothing else.
+    var byFolder = {};
+    edf.forEach(function (name) {
+      var folder = name.split("/").slice(0, -1).join("/");
+      (byFolder[folder] = byFolder[folder] || []).push(name);
+    });
+    var day = Object.keys(byFolder).sort()[0];
+    var wanted = byFolder[day] || [];
+    var asked = now();
+    var handles = [];
+    for (const name of wanted) {
+      var parts = name.split("/");
+      var at_folder = root;
+      for (var i = 0; i < parts.length - 1; i++) {
+        at_folder = await at_folder.getDirectoryHandle(parts[i]);
+      }
+      handles.push(await at_folder.getFileHandle(parts[parts.length - 1]));
+    }
+    say("walking to one day's files", now() - asked,
+        wanted.length + " files in " + (day === "" ? "the folder picked" : day)
+        + ", of " + Object.keys(byFolder).length + " such folders");
+    var got = now();
+    var made = await Promise.all(handles.map(function (one) { return one.getFile(); }));
+    say("making those files", now() - got, "getFile on each");
+    var read = now();
+    await Promise.all(made.map(function (file) { return file.slice(0, 8192).arrayBuffer(); }));
+    say("reading their headers", now() - read, "8 KB each, all at once");
+    var sized = now();
+    var bytes = 0;
+    made.forEach(function (file) { bytes += file.size; });
+    say("and their sizes", now() - sized, Math.round(bytes / 1024) + " KB");
+    chosen = made;
+    walked = true;
+  });
+
+  // Hidden means the picker is in front of the page; visible again means it has
+  // closed. What happens after that is the browser's own work on the choice.
+  document.addEventListener("visibilitychange", function () {
+    if (!waiting) { return; }
+    if (document.hidden) {
+      marks.hidden = now();
+      say("picker came up", marks.hidden - marks.click);
+    } else {
+      marks.visible = now();
+      say("picker closed", marks.visible - (marks.hidden || marks.click),
+          "the person was choosing for this long");
+    }
+  });
+
+  function arrived(input) {
+    if (!waiting) { return; }
+    waiting = false;
+    window.clearInterval(ticking);
+    marks.change = now();
+    say("browser finished with the folder", marks.change - (marks.visible || marks.click),
+        "walking it, making the files, and any prompt");
+    say("whole wait", marks.change - marks.click, "from the button to the files");
+    var list = input.files;
+    chosen = list;
+    // Paths and names are read here whatever else is measured, so that every run says
+    // which card it was. They were measured free on both browsers -- 606 paths in 3 ms
+    // in Chrome and 4 ms in Firefox -- and the time they take is printed, so a browser
+    // where that stops being true says so rather than spoiling the run quietly.
+    var at = now();
+    var folders = {};
+    var deep = 0;
+    var edfs = 0;
+    for (var i = 0; i < list.length; i++) {
+      var path = list[i].webkitRelativePath || list[i].name;
+      var parts = path.split("/");
+      if (parts.length > deep) { deep = parts.length; }
+      folders[parts.slice(0, -1).join("/")] = 1;
+      if (/\.edf$/i.test(list[i].name)) { edfs++; }
+    }
+    say("files", now() - at, list.length + " files, " + Object.keys(folders).length
+        + " folders, " + deep + " deep, " + edfs + " edf");
+    // Whether this browser also handed over entries, which are walked without a file
+    // being made for each name.
+    var entries = input.webkitEntries;
+    say("webkitEntries", null, entries ? (entries.length + " of them") : "none");
+    state.textContent = list.length + " files. The buttons above now measure what"
+      + " touching them costs.";
+    clock.textContent = ((marks.change - marks.click) / 1000).toFixed(1) + " s";
+  }
+
+  folderInput.addEventListener("change", function () { arrived(folderInput); });
+  filesInput.addEventListener("change", function () { arrived(filesInput); });
+  folderInput.addEventListener("cancel", function () {
+    waiting = false;
+    window.clearInterval(ticking);
+    say("cancelled", now() - marks.click);
+  });
+
+  // One property of every file, and nothing else. The application reads the path of
+  // every file the browser hands over and the size of every file it opens, so which
+  // of the two costs decides whether it can stop doing one of them.
+  //
+  // Only the first walk after a pick is a measurement. Whatever the first one touched
+  // is cached, and the page says so rather than reporting a number that means nothing.
+  var walked = false;
+
+  function walk(which, reader, describe) {
+    if (!chosen.length) { say(which, null, "nothing chosen yet"); return; }
+    if (walked) {
+      say(which, null, "not measured: something was walked already. Pick the folder again");
+      return;
+    }
+    walked = true;
+    var at = now();
+    var held = [];
+    for (var i = 0; i < chosen.length; i++) {
+      held.push(reader(chosen[i]));
+    }
+    var took = now() - at;
+    say(which + " of " + chosen.length + " files", took, describe(held));
+  }
+
+
+
+  document.getElementById("walk-size").addEventListener("click", function () {
+    walk("reading the size", function (file) { return file.size; }, function (held) {
+      var bytes = 0;
+      for (var i = 0; i < held.length; i++) { bytes += held[i]; }
+      return Math.round(bytes / 1048576) + " MB in total";
+    });
+  });
+
+  // The first 256 bytes of a file, then the header the first read says is there:
+  // the two reads the application makes per night file. Each is timed on its own,
+  // so a per-open cost can be told from a per-byte one.
+  function openHeaders(count) {
+    if (!chosen.length) { say("open", null, "nothing chosen yet"); return; }
+    // Finding the edf files reads every name, which is one of the three walks.
+    walked = true;
+    var edf = [];
+    for (var i = 0; i < chosen.length && edf.length < count; i++) {
+      if (/\.edf$/i.test(chosen[i].name)) { edf.push(chosen[i]); }
+    }
+    if (!edf.length) { say("open", null, "no edf files in the choice"); return; }
+    var first = now();
+    var probes = edf.map(function (file) { return file.slice(0, 256).arrayBuffer(); });
+    Promise.all(probes).then(function (heads) {
+      var afterFirst = now();
+      say("first read of " + edf.length + " files", afterFirst - first,
+          "256 bytes each, all at once");
+      var second = now();
+      var more = edf.map(function (file) { return file.slice(0, 8192).arrayBuffer(); });
+      return Promise.all(more).then(function () {
+        say("second read of the same files", now() - second, "8 KB each");
+        var oneByOne = now();
+        var step = 0;
+        return (function next() {
+          if (step === Math.min(edf.length, 20)) {
+            say("and 20 of them one after another", now() - oneByOne,
+                "what a loop that awaits each file costs");
+            return null;
+          }
+          return edf[step++].slice(0, 256).arrayBuffer().then(next);
+        })();
+      });
+    });
+  }
+
+  // The shape the application could have instead of its loop: a few files open at
+  // once, the next starting as one finishes. Eight is a guess to be measured, not a
+  // setting: what this reports is whether batching is worth building at all.
+  function batched(width) {
+    if (!chosen.length) { say("batch", null, "nothing chosen yet"); return; }
+    walked = true;
+    var edf = [];
+    for (var i = 0; i < chosen.length; i++) {
+      if (/\.edf$/i.test(chosen[i].name)) { edf.push(chosen[i]); }
+    }
+    if (!edf.length) { say("batch", null, "no edf files in the choice"); return; }
+    var at = now();
+    var next = 0;
+    function one() {
+      if (next === edf.length) { return null; }
+      return edf[next++].slice(0, 8192).arrayBuffer().then(one);
+    }
+    var lanes = [];
+    for (var lane = 0; lane < width; lane++) { lanes.push(one()); }
+    Promise.all(lanes).then(function () {
+      say(edf.length + " headers, " + width + " at a time", now() - at,
+          Math.round((now() - at) / edf.length) + " ms a file");
+    });
+  }
+
+  // Whether a file's size is cheap once its bytes have been read. The reader needs
+  // the size to check what a header declares against the file it came from, and on
+  // this platform a cold size is the most expensive thing there is; if reading warms
+  // it, the check costs nothing and the order of the two lines is all that matters.
+  document.getElementById("size-after").addEventListener("click", function () {
+    if (!chosen.length) { say("sizes after reading", null, "nothing chosen yet"); return; }
+    if (walked) {
+      say("sizes after reading", null, "not measured: something was walked already."
+          + " Pick the folder again");
+      return;
+    }
+    walked = true;
+    var edf = [];
+    for (var i = 0; i < chosen.length; i++) {
+      if (/\.edf$/i.test(chosen[i].name)) { edf.push(chosen[i]); }
+    }
+    var at = now();
+    Promise.all(edf.map(function (file) { return file.slice(0, 8192).arrayBuffer(); }))
+      .then(function () {
+        say("reading " + edf.length + " files first", now() - at, "8 KB each, all at once");
+        var then = now();
+        var bytes = 0;
+        for (var i = 0; i < edf.length; i++) { bytes += edf[i].size; }
+        say("their sizes afterwards", now() - then,
+            Math.round(bytes / 1048576) + " MB, against 53 ms a file cold");
+      });
+  });
+
+  document.getElementById("batch8").addEventListener("click", function () { batched(8); });
+  document.getElementById("open10").addEventListener("click", function () { openHeaders(10); });
+  document.getElementById("open50").addEventListener("click", function () { openHeaders(50); });
+  document.getElementById("openall").addEventListener("click", function () { openHeaders(100000); });
+
+  document.getElementById("clear").addEventListener("click", function () {
+    rows.replaceChildren();
+    plain.value = "";
+    clock.textContent = "--";
+    state.textContent = "Cleared.";
+  });
+})();
+</script>
+</body>
+</html>

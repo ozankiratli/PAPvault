@@ -54,6 +54,11 @@ window.addEventListener("load", function () {
 
   var input = document.getElementById("folder-input");
 
+  // This probe is about the route through the folder input, which is what a browser
+  // offering no directory handle takes. Chromium offers one, so it is taken away here
+  // before the button is pressed; the listing route has a probe of its own.
+  delete window.showDirectoryPicker;
+
   // Pressing Read Data must put the box up at once, before the browser's own folder
   // window even opens. The input's click is stubbed out so no native window opens in
   // a headless run; everything the page does around it is untouched.

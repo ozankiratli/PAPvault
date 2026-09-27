@@ -4,11 +4,10 @@
 // what session each belongs to, and which CPAP day that session began in. A file that
 // is not matched here is never opened.
 var PAPvaultCard = (function () {
-  const DATA_FOLDER = "DATALOG";
-
-  // yyyyMMdd_HHmmss_KIND.edf, two folders below the card's root: DATALOG/<day>/<file>.
+  // yyyyMMdd_HHmmss_KIND.edf. A file is a night file by this name alone, wherever it
+  // was handed over from: a whole card, one day's folder inside it, or a selection of
+  // files with no folder at all.
   const NIGHT_FILE = /^(\d{8})_(\d{6})_([A-Za-z0-9]{3})\.edf$/;
-  const FOLDERS_BELOW_DATALOG = 2;
 
   const SIGNAL_KINDS = ["BRP", "PLD", "SAD"];
   // The kinds a session's length is measured from. Oximetry is left out while it is
@@ -118,15 +117,18 @@ var PAPvaultCard = (function () {
     return sessions;
   }
 
+  // Whether a file holds a night's recording, by its name alone. Anything else on a
+  // card -- its settings, its identification, its checksums -- fails this and is never
+  // opened, so a folder can be listed and sorted before a single file is opened.
+  function isNightFile(name) {
+    return NIGHT_FILE.test(name);
+  }
+
   // The files of a chosen folder that hold a night's recording, and nothing else.
   function nightFiles(items) {
     const found = [];
     for (const item of items) {
       const parts = item.path.split("/");
-      const at = parts.lastIndexOf(DATA_FOLDER);
-      if (at === -1 || at !== parts.length - 1 - FOLDERS_BELOW_DATALOG) {
-        continue;
-      }
       const match = NIGHT_FILE.exec(parts[parts.length - 1]);
       if (!match) {
         continue;
@@ -141,11 +143,54 @@ var PAPvaultCard = (function () {
     return found;
   }
 
+  // Enough of a file to hold the header of one declaring up to thirty-one signals,
+  // which every file a supported machine writes is well inside. A file declaring more
+  // is read a second time for the rest of its header.
+  const HEADER_GUESS = 8192;
+
   async function headerOf(entry) {
-    const probe = await entry.file.slice(0, 256).arrayBuffer();
-    const need = PAPvaultEDF.headerBytesOf(probe);
-    const head = await entry.file.slice(0, need).arrayBuffer();
+    const guess = await entry.file.slice(0, HEADER_GUESS).arrayBuffer();
+    const need = PAPvaultEDF.headerBytesOf(guess);
+    const head = need <= guess.byteLength
+      ? guess
+      : await entry.file.slice(0, need).arrayBuffer();
     return PAPvaultEDF.parseHeader(head, entry.file.size);
+  }
+
+  // How many files are opened at once.
+  const OPEN_AT_ONCE = 32;
+
+  // Runs the work over every entry, OPEN_AT_ONCE of them in flight, and hands back
+  // what each gave in the order the entries came in. An entry whose work threw carries
+  // the reason instead, so one unreadable file does not take the rest with it.
+  async function eachAtOnce(entries, work, onProgress) {
+    const out = new Array(entries.length);
+    let next = 0;
+    let done = 0;
+    if (onProgress) {
+      onProgress(0, entries.length);
+    }
+    async function lane() {
+      while (next < entries.length) {
+        const mine = next;
+        next += 1;
+        try {
+          out[mine] = { value: await work(entries[mine]) };
+        } catch (error) {
+          out[mine] = { why: error.message };
+        }
+        done += 1;
+        if (onProgress) {
+          onProgress(done, entries.length);
+        }
+      }
+    }
+    const lanes = [];
+    for (let open = 0; open < Math.min(OPEN_AT_ONCE, entries.length); open++) {
+      lanes.push(lane());
+    }
+    await Promise.all(lanes);
+    return out;
   }
 
   // A session's times come from its flow and from nothing else, so a file the machine
@@ -255,18 +300,15 @@ var PAPvaultCard = (function () {
     const recordings = new Map();
     const refused = [];
 
+    const heads = await eachAtOnce(entries, headerOf, onProgress);
+
     for (let i = 0; i < entries.length; i++) {
       const entry = entries[i];
-      if (onProgress) {
-        onProgress(i, entries.length);
-      }
-      let header;
-      try {
-        header = await headerOf(entry);
-      } catch (error) {
-        refused.push({ path: entry.path, why: error.message });
+      if (heads[i].why) {
+        refused.push({ path: entry.path, why: heads[i].why });
         continue;
       }
+      const header = heads[i].value;
       if (header.interrupted && SIGNAL_KINDS.indexOf(entry.kind) !== -1) {
         refused.push({ path: entry.path, why: "its records are not continuous, which this page cannot time" });
         continue;
@@ -409,17 +451,17 @@ var PAPvaultCard = (function () {
   // read rather than a name being discovered on whichever night happens to hold it.
   async function eventNames(sessions, onProgress) {
     const seen = [];
-    let done = 0;
-    for (const session of sessions) {
-      const loaded = await load(session, []);
-      for (const event of loaded.events) {
+    const loaded = await eachAtOnce(sessions, function (session) {
+      return load(session, []);
+    }, onProgress);
+    for (const one of loaded) {
+      if (!one.value) {
+        continue;
+      }
+      for (const event of one.value.events) {
         if (seen.indexOf(event.text) === -1) {
           seen.push(event.text);
         }
-      }
-      done += 1;
-      if (onProgress) {
-        onProgress(done, sessions.length);
       }
     }
     return seen;
@@ -431,19 +473,24 @@ var PAPvaultCard = (function () {
     const kinds = wantedKinds(keys);
     const out = { signals: {}, events: [], missing: [], refused: [] };
 
-    for (const held of session.files) {
+    // The files this call needs, read together and taken in order afterwards.
+    const needed = session.files.filter(function (held) {
+      return EVENT_KINDS.indexOf(held.entry.kind) !== -1
+        || kinds.indexOf(held.entry.kind) !== -1;
+    });
+    const buffers = await eachAtOnce(needed, function (held) {
+      return held.entry.file.arrayBuffer();
+    });
+
+    for (let at = 0; at < needed.length; at++) {
+      const held = needed[at];
       const kind = held.entry.kind;
       const isEvents = EVENT_KINDS.indexOf(kind) !== -1;
-      if (!isEvents && kinds.indexOf(kind) === -1) {
-        continue;
-      }
-      let buffer;
-      try {
-        buffer = await held.entry.file.arrayBuffer();
-      } catch (error) {
+      if (buffers[at].why) {
         out.refused.push({ path: held.entry.path, why: "it could not be read" });
         continue;
       }
+      const buffer = buffers[at].value;
 
       if (isEvents) {
         try {
@@ -577,6 +624,8 @@ var PAPvaultCard = (function () {
   return {
     read: read,
     load: load,
+    isNightFile: isNightFile,
+    eachAtOnce: eachAtOnce,
     eventNames: eventNames,
     byDay: byDay,
     cpapDayOf: cpapDayOf,

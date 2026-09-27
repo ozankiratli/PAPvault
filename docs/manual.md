@@ -25,7 +25,7 @@ If you want more, install [OSCAR](https://www.sleepfiles.com/OSCAR/). It reads m
 - **Only the night's recording is read.** Files that hold something else, such as the machine's summaries, its settings or its identification file, are never opened.
 - **Nothing identifying is touched inside the files.** They carry fields naming the person and the machine. PAPvault steps over them, and never shows or keeps them.
 - **The one thing you will see is the name of the folder you picked.** After you open one, PAPvault says what it found -- *"SN-23231234567 opened: 15 files"* -- using the folder's own name, so you can tell which folder you actually opened. On many cards that name is the machine's serial number. It is never stored and never sent; it is on your screen and gone when you reload. **Worth knowing if you send someone a screenshot of that dialog**, because the name goes with it.
-- **Your browser's own dialog may use the word "upload".** That is the browser's wording for letting a page open a folder, and it is why PAPvault never uses the word itself. Nothing is sent anywhere.
+- **Your browser's own dialog may say "upload", or ask to "make a copy".** Firefox asks you to confirm an upload; Chrome asks you to let the site access and make a copy of the folder. Both are the browser's own wording for letting a page read a folder, and neither describes what PAPvault does with it. It asks for permission to read and nothing else, it never writes to your card, and the only "copy" is the one in your browser's memory, which goes when you leave the page. It is why PAPvault never uses either word itself. See [Desktop and mobile browsers](#Desktop and mobile browsers).
 - **The host still sees you.** This page is served by GitHub Pages, through a content delivery network in front of it, and both see the address every visit comes from. GitHub's documentation says a visitor's address is logged and stored for security purposes. No page can prevent that. Download the single file and open it offline if you would rather not be seen at all.
 
 ## Machines it reads
@@ -38,7 +38,7 @@ Another machine can be added once there is data to test with. A report, and a co
 
 PAPvault does not replace OSCAR, the desktop program for the same data. For keeping years of data and studying them deeply, OSCAR is the better tool. PAPvault is for looking at a night without installing anything.
 
-If you want a different machine added, see **Contributing** under *Development*.
+If you want a different machine added, see [Contributing](#Contributing).
 
 ## Where the facts come from
 
@@ -96,6 +96,10 @@ Nothing is uploaded, because there is nowhere to upload it to. PAPvault opens th
 **The window your browser opens at step 2 is the browser's own, and it will probably say "upload".** Firefox and Chrome both use that word for letting a page open a folder, and they ask you to confirm it; they use the same words whether the page sends the folder somewhere or, as here, reads it where it sits. No page can change what they say. If you would rather not see it, drag the folder onto the box instead -- that skips the browser's window entirely.
 
 **A large folder takes a while**, and a box says so from the moment you press **Read Data** until the reading is done. Part of that wait is your browser's own: after you choose a folder it lists everything in it before PAPvault hears about it at all, and on a card holding years of nights that alone can take a noticeable moment. The box is up across the whole of it, and counts the files off once the reading starts. Nothing is being sent anywhere during any of it -- the time goes on opening and reading the files where they sit. It closes itself when the reading is done, and also if you close your browser's folder window without choosing anything.
+
+**You do not have to open the whole card.** Any folder holding recordings works, so one night's folder inside `DATALOG` opens that night on its own. Recordings are recognized by their names -- `20260105_223000_PLD.edf` is the tenth of January 2026, half past ten at night -- and never by where they sit, so it makes no difference which folder you hand over.
+
+**On a phone that can be the difference between a second and several minutes**, and which it is depends on your browser. The next section says why, and what to do about it.
 
 PAPvault then tells you what it found: how many sessions are on the card, which nights they fall on, and the first and last recording. The calendar marks every day the card holds a recording for, and opens on the most recent one.
 
@@ -229,6 +233,38 @@ Two annotations are left out: the ones a machine writes to mark where a recordin
 
 Pick more than one day and the detailed plots are not drawn. Reading a night's flow signal means opening the largest file on the card, and there is no useful way to show a month of it at once; the summary above is what a longer period shows.
 
+
+## Desktop and mobile browsers
+
+PAPvault is the same page everywhere, and it reads a card the same way everywhere. What differs is how your browser hands the folder over, and on a phone that difference is the whole of the waiting.
+
+**There are two ways a browser can do it.** The first is a **listing**: it gives the page the names of what is in the folder, and makes a file only when the page asks for one. The second is **a file for everything, up front**: before the page hears a word, the browser walks the whole folder and prepares every single thing in it -- every recording, every checksum, every settings file -- whether or not any of it will be read.
+
+Which of the two you get is the browser's decision, not ours. PAPvault takes the listing wherever it is offered, and otherwise takes the other way.
+
+### Firefox
+
+**On a computer.** You choose the card's folder, Firefox asks you to confirm it -- that window says "upload" and names how many files it found -- and it then hands the whole card over at once. PAPvault's own box goes up, counts the recordings off as it opens them, and closes itself when the plots are ready. For a card of a hundred nights the whole of that is a second or two.
+
+**On a phone, Firefox does all the waiting at the start.** After you choose a folder, its confirm window -- the one that says "upload" and counts the files -- can take a long time to appear, and how long depends on how many files are on the card, not on how much of it you want to see. A card holding years of nights can keep you waiting minutes before that window shows up.
+
+**Once it appears, you are done waiting.** Everything has been prepared by then, so the reading that follows is immediate and the plots come up at once.
+
+This is because **Firefox does not offer a listing**. It has to build a file for every file on the card before PAPvault hears anything, so the cost is paid whatever you were going to look at. Nothing in a page can change that.
+
+**So on a phone with Firefox:** open one night's folder inside `DATALOG` to see that night, which takes about a second; or, for a longer period, copy the days you want into a folder of their own and open that. Opening the whole card works, and you wait once.
+
+### Chrome
+
+**On a computer.** You choose the card's folder in Chrome's own window, and Chrome then asks you to allow it -- its wording is about letting the site *access and make a copy of* the folder. **What it is asking for is permission to read**, which is the only kind PAPvault ever asks for: it never writes to your card, and the "copy" in that sentence is the page reading the contents into the browser's memory, where it draws them and forgets them when you leave. Once you allow it, PAPvault reads the names straight away, then opens the recordings, counting them off in its box. A hundred nights is a second or two, and nothing on the card but the recordings is ever opened at all.
+
+**On a phone, Chrome spreads the work out and shows it.** You choose the folder, allow the same permission, and there is no long silence after it: the folder is listed in a moment, and the box then counts the recordings off as they are opened. It is not instant with years of data on a phone, but it is comfortable, and you can see it moving.
+
+This is because **Chrome offers a listing**. PAPvault reads only the names first, recognizes recordings by how they are named, and asks for those and nothing else -- so on a card of 600 files, only the recordings are ever turned into files, and everything else is passed over by name. Where the device has little to spare, that is the difference between a usable page and a long wait.
+
+### And what does not change
+
+The same recordings are opened, the same nights are found, and the same figures are drawn, whichever browser you use and whichever route it takes. Nothing is sent anywhere on either route. On a computer you can skip your browser's window entirely by dragging the folder onto the box.
 
 # Development
 

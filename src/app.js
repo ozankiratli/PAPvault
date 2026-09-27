@@ -1441,6 +1441,17 @@
     });
   });
 
+  // A link from one section of the manual to another shows that section instead of
+  // following the address, which would take the reader out of the dialog.
+  document.querySelector(".manual-panes").addEventListener("click", function (event) {
+    const link = event.target.closest("a[data-goto]");
+    if (!link) {
+      return;
+    }
+    event.preventDefault();
+    showManualSection(link.dataset.goto);
+  });
+
   manualGroups.forEach(function (group) {
     group.querySelector(".manual-group-button").addEventListener("click", function () {
       const items = group.querySelector(".manual-group-items");
@@ -1454,6 +1465,9 @@
   let chosenFiles = [];
   const folderInput = document.getElementById("folder-input");
   const folderPick = document.getElementById("folder-pick");
+  // Recordings the browser listed but would not open, reported beside whatever the
+  // reader itself refused.
+  let listingRefused = [];
   const folderDrop = document.getElementById("folder-drop");
   const folderStatus = document.getElementById("folder-status");
   const folderDialog = document.getElementById("folder-dialog");
@@ -1472,12 +1486,14 @@
     const said = [];
     const files = fileCount === 1 ? "1 file" : fileCount + " files";
     const nights = card.fileCount === 1 ? "1 of them" : card.fileCount + " of them";
-    said.push(line(null, (name || "Folder") + " opened: " + files + ", " + nights
+    said.push(line(null, (name || "Files") + " opened: " + files + ", " + nights
       + " holding a night's recording. Nothing else was opened."));
 
     if (!card.sessions.length) {
-      said.push(line("empty", "No recording was found. PAPvault looks for a DATALOG folder"
-        + " holding one folder per day."));
+      said.push(line("empty", "No recording was found. PAPvault looks for files named like"
+        + " 20260105_223000_PLD.edf, which a ResMed card keeps in its DATALOG folder, one"
+        + " folder to a day. The card itself, one of those day folders, or the files"
+        + " themselves all work."));
     } else {
       const sessions = card.sessions.length === 1 ? "1 session" : card.sessions.length + " sessions";
       const days = daysWithData.size === 1 ? "1 day" : daysWithData.size + " days";
@@ -1495,7 +1511,7 @@
         + " night's start or end."));
     }
 
-    for (const bad of card.refused) {
+    for (const bad of card.refused.concat(listingRefused)) {
       said.push(line("empty", "Not read: " + bad.path + " -- " + bad.why));
     }
     folderStatus.replaceChildren(...said);
@@ -1589,7 +1605,65 @@
     readChosenCard(items);
   }
 
-  folderPick.addEventListener("click", function () {
+  // Where the browser offers it, a folder is opened through a handle rather than
+  // through the input: the names are listed first and a file is made only for a
+  // recording, so nothing else on the card is ever turned into a file. It is asked
+  // when the button is pressed rather than kept from startup, so which route a page
+  // takes can be decided after it has loaded.
+  function canList() {
+    return typeof window.showDirectoryPicker === "function";
+  }
+
+  async function listFolder(handle, under, into) {
+    for await (const entry of handle.values()) {
+      if (entry.kind === "directory") {
+        await listFolder(entry, under + entry.name + "/", into);
+      } else if (PAPvaultCard.isNightFile(entry.name)) {
+        into.push({ handle: entry, path: under + entry.name });
+      }
+    }
+  }
+
+  async function readListedCard(root) {
+    showLoading("Listing " + root.name + ".", "Reading...");
+    await painted();
+    const found = [];
+    listingRefused = [];
+    try {
+      await listFolder(root, root.name + "/", found);
+    } catch (error) {
+      hideLoading();
+      folderStatus.replaceChildren(line("empty", "That folder could not be listed."));
+      return;
+    }
+    showLoading(found.length + " recordings to open.");
+    const made = await PAPvaultCard.eachAtOnce(found, function (one) {
+      return one.handle.getFile();
+    }, function (done, total) {
+      showLoading("Opening the recordings: " + done + " of " + total + ".");
+    });
+    const items = [];
+    for (let i = 0; i < found.length; i++) {
+      if (made[i].why) {
+        listingRefused.push({ path: found[i].path, why: made[i].why });
+      } else {
+        items.push({ file: made[i].value, path: found[i].path });
+      }
+    }
+    showChoice(items);
+  }
+
+  folderPick.addEventListener("click", async function () {
+    if (canList()) {
+      let root;
+      try {
+        root = await window.showDirectoryPicker();
+      } catch (error) {
+        return;
+      }
+      readListedCard(root);
+      return;
+    }
     // Opened first, while nothing is covering the input: the box that follows is a
     // modal, and an element under one is inert.
     folderInput.click();
@@ -1597,6 +1671,7 @@
       + "lists the folder itself, which can take a while for a large one.",
       "Waiting for a folder...");
   });
+
 
   // The browser's window was closed without a folder being chosen, so nothing is
   // coming and the box comes down. Where a browser does not report that, the box
@@ -1608,10 +1683,9 @@
   folderInput.addEventListener("change", async function () {
     showLoading("Looking through the folder.");
     await painted();
-    const items = Array.prototype.map.call(folderInput.files, function (file) {
+    showChoice(Array.prototype.map.call(folderInput.files, function (file) {
       return { file: file, path: file.webkitRelativePath || file.name };
-    });
-    showChoice(items);
+    }));
   });
 
   function readEntries(reader) {

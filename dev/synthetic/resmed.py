@@ -1142,20 +1142,91 @@ CASES = {
 }
 
 
+def case_phone(card, nights, waveform, one_folder=False):
+    """The same night repeated, for timing what a browser does with a folder.
+
+    Every night is byte for byte the size of every other, and they differ only in the
+    date their folder and their files are named for, so a card of five nights is five
+    times a card of one in files, in bytes and in folders alike. That is what makes a
+    measurement on a device readable: a wait that doubles with twice the card is
+    telling you the cost is in the count, and a wait that does not is telling you it
+    is somewhere else.
+
+    waveform decides the BRP file, which is where nearly all of a night's bytes are.
+    A heavy card of a few nights weighs about what a light card of many nights does,
+    while holding a fraction of the files, so the two together separate a cost per
+    file from a cost per byte.
+
+    one_folder files every night under the first night's folder instead of its own.
+    PAPvault is indifferent to it -- a session's day comes from its stamp and never
+    from the folder it was filed in -- but a browser walking the card is not, and a
+    person can select a folder's files by hand where they cannot select a tree's. So
+    it separates a cost per folder from a cost per file, and a directory walk from
+    the making of the files.
+    """
+    first = datetime.datetime(2026, 1, 5, 22, 30, 0)
+    events = [(600.0, "Synthetic event one", 12.0), (3600.0, "Synthetic event two", 25.5)]
+    csl = [(1800.0, "CSR Start", 0.0), (2400.0, "CSR End", 0.0)]
+    sessions = []
+    folders = []
+    for night in range(nights):
+        start = first + datetime.timedelta(days=night)
+        named = first if one_folder else start
+        folder = card / "DATALOG" / cpap_day(named).strftime("%Y%m%d")
+        folders.append(folder)
+        sessions.append(session_files(folder, start, 480, events, csl,
+                                      oximetry=False, waveform=waveform))
+
+    days = {}
+    for session in sessions:
+        days.setdefault(session["cpap_day"], []).append(session["start"])
+
+    filler(card, sorted(set(folders)))
+    return {
+        "case": "phone-%d%s%s" % (nights, "-heavy" if waveform else "",
+                                  "-flat" if one_folder else ""),
+        "what_it_exercises": "nothing about the reader. It is an instrument: %d identical "
+                             "nights of eight hours, %s the waveform, %s, for timing how "
+                             "long a browser takes between a folder being chosen and its "
+                             "files arriving" % (nights, "with" if waveform else "without",
+                                                 "all in one folder" if one_folder
+                                                 else "one folder each"),
+        "cpap_days": days,
+        "sessions": sessions,
+        "identifying_marker": MARKER,
+        "files_never_to_open": ["STR.edf", "Journal.dat", "Identification.tgt",
+                                "Identification.crc", "SETTINGS/SET1.tgt", "*.crc"],
+    }
+
+
+# Cards for measuring a device rather than for checking the reader. They are built
+# only when named, into a folder of their own, so the suite neither builds them nor
+# checks them: they hold no case the five above do not already hold, and a hundred
+# more nights in every run would cost minutes to prove nothing new.
+INSTRUMENTS = {
+    "phone-1": lambda card: case_phone(card, 1, False),
+    "phone-5": lambda card: case_phone(card, 5, False),
+    "phone-100": lambda card: case_phone(card, 100, False),
+    "phone-9-heavy": lambda card: case_phone(card, 9, True),
+    "phone-100-flat": lambda card: case_phone(card, 100, False, one_folder=True),
+}
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build synthetic ResMed cards.")
     parser.add_argument("cases", nargs="*", default=sorted(CASES), help="which cases to build")
     args = parser.parse_args()
 
     for name in args.cases:
-        if name not in CASES:
-            sys.exit(f"resmed: no case named {name!r}; known cases: {', '.join(sorted(CASES))}")
-        card = OUT / name
+        if name not in CASES and name not in INSTRUMENTS:
+            sys.exit(f"resmed: no case named {name!r}; known cases: {', '.join(sorted(CASES))};"
+                     f" instruments, built only when named: {', '.join(sorted(INSTRUMENTS))}")
+        card = (OUT / name) if name in CASES else (OUT.parent / "phone" / name)
         if card.exists():
             for path in sorted(card.rglob("*"), reverse=True):
                 path.rmdir() if path.is_dir() else path.unlink()
         card.mkdir(parents=True, exist_ok=True)
-        answer = CASES[name](card)
+        answer = (CASES.get(name) or INSTRUMENTS[name])(card)
         (card / "answer.json").write_text(json.dumps(answer, indent=2, sort_keys=True) + "\n",
                                           encoding="utf-8")
         files = sum(1 for path in card.rglob("*") if path.is_file())

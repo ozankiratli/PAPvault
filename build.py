@@ -14,6 +14,7 @@ The manual is written in a small subset of Markdown:
 
     # Heading      a group in the manual's navigation, which collapses
     ## Heading     a section: one button, one pane
+    ### Heading    a heading within a section
     > text         a pull quote
     - text         a bulleted list
     1. text        a numbered list
@@ -70,6 +71,15 @@ def fail(message):
 
 def inline(text):
     escaped = html_module.escape(text, quote=False)
+    # A link to another section of the manual, written as the section's own title:
+    # [Contributing](#Contributing). The page opens that section rather than moving
+    # the window, and the build fails if no section has that title.
+    escaped = re.sub(
+        r"\[([^\]]+)\]\(#([^)\s][^)]*)\)",
+        lambda found: '<a href="#" data-goto="%s">%s</a>'
+        % (section_id(found.group(2)), found.group(1)),
+        escaped,
+    )
     escaped = re.sub(
         r"\[([^\]]+)\]\((https://[^)\s\"']+)\)",
         r'<a href="\2" rel="noreferrer">\1</a>',
@@ -120,6 +130,11 @@ def render_manual(text):
         line = line.strip()
         if not line:
             close_list()
+        elif line.startswith("### "):
+            close_list()
+            if not panes:
+                fail(f"docs/manual.md has a heading before its first section: {line!r}")
+            body.append(f"<h4>{inline(line[4:].strip())}</h4>")
         elif line.startswith("## "):
             close_section()
             title = line[3:].strip()
@@ -175,11 +190,19 @@ def render_manual(text):
             + "\n</div>\n</div>"
         )
 
+    whole = "\n".join(panes)
+    # A link to a section that does not exist would be a dead link in a page that has
+    # no way to show one, so it stops the build instead.
+    known = set(re.findall(r'<section class="manual-pane" id="([^"]+)"', whole))
+    for wanted in re.findall(r'data-goto="([^"]+)"', whole):
+        if wanted not in known:
+            fail(f"docs/manual.md links to a section that does not exist: {wanted!r}")
+
     return (
         '<nav class="manual-nav" id="manual-nav" aria-label="Manual sections">\n'
         + "\n".join(nav)
         + '\n</nav>\n<div class="manual-panes">\n'
-        + "\n".join(panes)
+        + whole
         + "\n</div>"
     )
 

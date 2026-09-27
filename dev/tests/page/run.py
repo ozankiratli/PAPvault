@@ -750,6 +750,29 @@ def check_narrow(report, checks):
     checks.that("and the action it was asked for happens", menu["manualOpen"] is True)
 
 
+# What a card holds besides its recordings, none of which may ever become a file.
+NEVER_OPENED = ["STR.edf", "Journal.dat", "Identification.tgt", "Identification.crc",
+                "SET1.tgt", ".crc"]
+
+
+def check_listing(report, checks):
+    opened = report["openedNames"]
+    checks.that("the card was read through the listing", report["charts"] > 0,
+                report["charts"])
+    checks.that("a night of it is on the calendar", report["days"] == 1, report["days"])
+    checks.that("the folder is named back to the reader",
+                report["said"].startswith("SN-SYNTHETIC opened:"), report["said"][:60])
+    checks.that("every recording on the card was opened", len(opened) == 5, opened)
+    checks.that("and nothing else on it was made into a file at all",
+                report["opened"] < report["handed"], (report["opened"], report["handed"]))
+    for name in NEVER_OPENED:
+        checks.that("nothing matching %s was opened" % name,
+                    not any(one.endswith(name) for one in opened), opened)
+    checks.that("what was opened is what the reader calls a recording",
+                all(re.search(r"/\d{8}_\d{6}_[A-Za-z0-9]{3}\.edf$", one) for one in opened),
+                opened)
+
+
 def check_floor(report, checks):
     for what, runs in [("the day's plots", report["stack"]),
                        ("the summary's events", report["events"])]:
@@ -793,6 +816,7 @@ PROBES = [
     ("make-narrow-probe.py", "stacked", "NARROW", check_narrow),
     ("make-narrow-probe.py", "menu", "NARROW", check_narrow),
     ("make-floor-probe.py", "floor", "FLOOR", check_floor),
+    ("make-listing-probe.py", "listing", "LISTING", check_listing),
 ]
 
 # The window a probe is given, where the default of 1500 is not what it is about.
