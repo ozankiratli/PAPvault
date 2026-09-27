@@ -18,3 +18,8 @@ This file is public, like the rest of the repository, so an entry never carries 
 Checked: All features, the website permissions on the machine I built. 
 Data: Real (AirSense 10) and synthetic data.
 Found: All released features are working. 
+
+## 2026-09-27 at preparation to v0.0.2
+Checeked: All features on desktop and mobile, the wevbsite permissions I built.
+Data: Real (AirSense 10) and synthetic data
+Found: All released features are working. 
