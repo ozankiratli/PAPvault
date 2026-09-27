@@ -37,6 +37,10 @@ var PAPvaultPlots = (function () {
   // pinch with a few tenths of a unit before the fingers have moved.
   const ZOOM_TRACE = 0.5;
   const EVENT_ROW_HEIGHT = 22;
+  // How far a finger may travel and still count as a tap rather than a drag, and how
+  // long a second tap has to arrive in to be a double one.
+  const TAP_SLOP = 8;
+  const DOUBLE_TAP = 320;
   // The narrowest a chart is ever drawn. Below it the card scrolls sideways rather
   // than the plot growing narrower still.
   const PLOT_LEAST = 240;
@@ -833,6 +837,108 @@ var PAPvaultPlots = (function () {
       chart.over.addEventListener("dblclick", function () {
         spread(options.from, options.to);
       });
+
+      // A touch screen has no wheel, no Ctrl and no hover, so the same three things
+      // are done with fingers: one finger slides the window and takes the cursor with
+      // it, two fingers zoom about the point between them, and two taps in quick
+      // succession put the whole period back. Up and down is left to the page, which
+      // is what touch-action asks the browser for.
+      let began = null;
+      let tapped = 0;
+
+      const spanOf = function (touches) {
+        const dx = touches[0].clientX - touches[1].clientX;
+        const dy = touches[0].clientY - touches[1].clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      };
+
+      const middleOf = function (touches) {
+        if (touches.length < 2) {
+          return touches[0].clientX;
+        }
+        return (touches[0].clientX + touches[1].clientX) / 2;
+      };
+
+      const cursorAt = function (x) {
+        const box = chart.over.getBoundingClientRect();
+        chart.setCursor({ left: x - box.left, top: chart.over.clientHeight / 2 }, true);
+      };
+
+      // Where the window and the fingers are as of now. Taken again whenever a finger
+      // lands or leaves, so the gesture carries on from where it was rather than
+      // jumping by however far the fingers that remain are from the ones that went.
+      const beginFrom = function (touches, fingers) {
+        const box = chart.over.getBoundingClientRect();
+        began = {
+          at: middleOf(touches),
+          min: chart.scales.x.min,
+          max: chart.scales.x.max,
+          perPixel: (chart.scales.x.max - chart.scales.x.min) / box.width,
+          apart: touches.length > 1 ? spanOf(touches) : 0,
+          anchor: chart.posToVal(middleOf(touches) - box.left, "x"),
+          moved: 0,
+          fingers: fingers,
+        };
+      };
+
+      chart.root.addEventListener("touchstart", function (event) {
+        beginFrom(event.touches,
+          Math.max(event.touches.length, began ? began.fingers : 0));
+      }, { passive: true });
+
+      chart.root.addEventListener("touchmove", function (event) {
+        if (!began) {
+          return;
+        }
+        const now = middleOf(event.touches);
+        began.moved = Math.max(began.moved, Math.abs(now - began.at));
+        // Two fingers that have moved apart or together zoom by how far they did,
+        // and where their middle went slides the window under them.
+        if (event.touches.length > 1 && began.apart) {
+          event.preventDefault();
+          const factor = began.apart / Math.max(spanOf(event.touches), 1);
+          const by = (began.at - now) * began.perPixel * factor;
+          const from = began.anchor - (began.anchor - began.min) * factor + by;
+          const to = began.anchor + (began.max - began.anchor) * factor + by;
+          if (to - from >= options.to - options.from) {
+            spread(options.from, options.to);
+          } else {
+            slide(from, to);
+          }
+          return;
+        }
+        if (began.moved < TAP_SLOP) {
+          return;
+        }
+        event.preventDefault();
+        const by = (began.at - now) * began.perPixel;
+        slide(began.min + by, began.max + by);
+        cursorAt(now);
+      }, { passive: false });
+
+      chart.root.addEventListener("touchend", function (event) {
+        if (!began) {
+          return;
+        }
+        // A single finger that went nowhere is a tap: the first puts the cursor where
+        // it landed, and a second one soon after puts the whole period back. A pinch
+        // is never a tap, however still its middle stayed.
+        if (began.fingers === 1 && began.moved < TAP_SLOP && !event.touches.length) {
+          if (event.timeStamp - tapped < DOUBLE_TAP) {
+            spread(options.from, options.to);
+            tapped = 0;
+          } else {
+            cursorAt(began.at);
+            tapped = event.timeStamp;
+          }
+        }
+        if (event.touches.length) {
+          beginFrom(event.touches, began.fingers);
+          return;
+        }
+        tapped = began.fingers === 1 ? tapped : 0;
+        began = null;
+      }, { passive: true });
     }
   }
 

@@ -58,3 +58,24 @@ Three candidates, none of them measured. They are not exclusive.
 - Candidate 3 shows as a gap over 200 milliseconds inside one continuous movement.
 
 Until one of those rows exists, all three are guesses, and this project has spent four rounds on guesses about this hardware already.
+
+## Fingers, 2026-09-27
+
+**Written against the tree at `7e8ad1d`, with everything here uncommitted.** Z, on trying the page on a phone: *"I also finally loaded a dataset on the phone and the interactivity of the plots is not working at all."*
+
+**It was not working in the strongest sense.** `src/plots.js` bound `wheel`, `mousedown`, `mousemove`, `mouseup` and `dblclick`, and nothing else; there was no touch or pointer handler anywhere, and no `touch-action` in the stylesheet. uPlot's own drag selection is mouse-bound as well. So a touch screen had no zoom, no pan, no way back, and no way to read a value, since there is nothing to hover with.
+
+**What was built**, beside the wheel handlers and through the same `slide` and `spread`, so a phone and a trackpad cannot drift apart:
+
+- one finger sideways slides the window and takes the cursor with it;
+- two fingers zoom about the point between them, by how far apart they move, and the window follows their middle, so pinching and dragging at once is one gesture;
+- one tap places the cursor, two taps restore the whole period;
+- `touch-action: pan-y` leaves up and down to the page.
+
+**Two things were wrong when Z tried it, and both are the kind only a hand finds.**
+
+*The zoom snapped back.* Z: *"The zoom starts with pinching out but resets to where it was for some reason."* A symmetric pinch barely moves the point between the fingers, so the gesture passed the "went nowhere" test and counted as a tap -- and a second pinch within the double tap put the whole period back. A gesture that ever had two fingers is now never a tap, and the moment of the last tap is cleared when one ends. **The fix has two halves and either alone hides the bug**, which is recorded in `dev/tests/README.md` because it makes a single deliberate break misleading.
+
+*The pinch only worked on the lines.* Z: *"Oh they need to be pinched out directly on the lines."* The handlers were on the plotting rectangle, as the mouse handlers are; on a phone a finger lands on the title or the axis as often as not. They are on the whole chart now, with positions still measured against the plotting area, and `touch-action` moved with them.
+
+**What the probe could and could not see.** `dev/tests/page/make-touch-probe.py` dispatches the touch events a browser would send and reads the window each gesture leaves. Its first run reported that nothing moved at all, which was false: the page had asked every chart for the right window, and uPlot settles a scale after the event that asked for it, so the probe was reading the window from before the gesture. A gesture is now read once the page has had a turn. **Feel is still Z's**: the probe says the arithmetic is right, and only a hand says whether the rate is.

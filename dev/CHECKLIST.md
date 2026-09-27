@@ -150,6 +150,14 @@ Entries are named, not numbered, so a record can point at one and keep pointing 
 
 **Failure:** the bar scrolls away; a plot, a title or a legend row draws on top of it; the sticky cards start underneath it or leave a gap that grows when the window is narrowed; or the bar covers the first card on a narrow screen.
 
+## `touch-gestures` -- the plots answer to fingers
+
+**Protects:** that a phone can zoom, slide and read a plot at all, and that the page still scrolls.
+
+**How:** on a phone or in a browser's touch emulation, read a card and pick a single day. Pinch out on a plot, with the fingers landing on the title or the axis rather than on the lines, and pinch again straight afterwards. Drag with one finger. Tap once, then tap twice. Then drag up and down across a plot.
+
+**Failure:** a pinch does nothing where the fingers landed; the zoom snaps back to where it started when you pinch a second time; one finger moves nothing, or changes how much is shown instead of which part; the reading line does not follow a finger or cannot be placed by a tap; two taps do not restore the whole night; the page will not scroll up and down over a plot, or the plot zooms when you meant to scroll; or the plots in a stack stop agreeing with each other.
+
 ## `narrow-calendar` -- the calendar is reachable on a narrow screen
 
 **Protects:** that below 1500 pixels wide the calendar moves into a dialog rather than disappearing, and keeps its selection.

@@ -830,6 +830,13 @@ button:disabled {
   margin: 0;
 }
 
+/* Up and down a plot scrolls the page; sideways and pinching belong to the chart,
+   which is what the handlers on it take. It covers the whole chart and not just its
+   plotting area, so a finger landing on an axis or a title is not a dead touch. */
+.plot .uplot {
+  touch-action: pan-y;
+}
+
 .plot + .plot {
   margin-top: 1em;
   padding-top: 1em;

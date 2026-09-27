@@ -773,6 +773,42 @@ def check_listing(report, checks):
                 opened)
 
 
+def check_touch(report, checks):
+    steps = dict((name, (span, at)) for name, span, at in report["steps"])
+    whole = report["whole"]
+    checks.that("nothing threw", report["thrown"] == [], report["thrown"])
+    checks.that("fingers moving apart zoom in",
+                steps["pinched apart"][0] < whole, (whole, steps["pinched apart"]))
+    checks.that("and by how far they moved, not by how many events it took",
+                abs(steps["pinched apart"][0] - whole / 3) <= whole / 20,
+                (whole, steps["pinched apart"][0]))
+    # Where a pinch counted as a tap, a second one within the double tap put the whole
+    # period back instead of zooming further. That is what Z reported as the zoom
+    # resetting itself.
+    checks.that("a second pinch carries on from the first",
+                steps["pinched again"][0] < steps["pinched apart"][0],
+                (steps["pinched apart"], steps["pinched again"]))
+    checks.that("and does not put the whole period back",
+                steps["pinched again"][0] != whole, steps["pinched again"])
+    checks.that("one finger moves the window",
+                steps["dragged"][1] != steps["pinched again"][1],
+                (steps["pinched again"], steps["dragged"]))
+    checks.that("and leaves its span alone",
+                steps["dragged"][0] == steps["pinched again"][0],
+                (steps["pinched again"], steps["dragged"]))
+    checks.that("two taps put the whole period back",
+                steps["tapped twice"][0] == whole, (whole, steps["tapped twice"]))
+    checks.that("a gesture that belongs to the plot is taken from the page",
+                report["preventedPinch"] is True and report["preventedDrag"] is True,
+                (report["preventedPinch"], report["preventedDrag"]))
+    checks.that("and one that belongs to the page is left to it",
+                report["preventedVertical"] is False, report["preventedVertical"])
+    checks.that("so dragging up or down does not move the window",
+                list(steps["dragged down the page"]) == report["held"],
+                (report["held"], steps["dragged down the page"]))
+    checks.that("the cursor has something to show", report["cursorShows"] is True)
+
+
 def check_floor(report, checks):
     for what, runs in [("the day's plots", report["stack"]),
                        ("the summary's events", report["events"])]:
@@ -817,6 +853,7 @@ PROBES = [
     ("make-narrow-probe.py", "menu", "NARROW", check_narrow),
     ("make-floor-probe.py", "floor", "FLOOR", check_floor),
     ("make-listing-probe.py", "listing", "LISTING", check_listing),
+    ("make-touch-probe.py", "touch", "TOUCH", check_touch),
 ]
 
 # The window a probe is given, where the default of 1500 is not what it is about.
