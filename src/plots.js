@@ -317,6 +317,23 @@ var PAPvaultPlots = (function () {
     return options.spellOf ? options.spellOf(text) : text;
   }
 
+  // How long a mark lasted, short enough to read at a glance.
+  function durationWords(seconds) {
+    if (seconds < 60) {
+      return (Math.round(seconds * 10) / 10) + "s";
+    }
+    const whole = Math.round(seconds);
+    const rest = whole % 60;
+    return Math.floor(whole / 60) + "m" + (rest ? " " + rest + "s" : "");
+  }
+
+  // What a mark on the strip says when it is pointed at: the name it is drawn under,
+  // and how long it lasted. A mark the device gave no duration says its name alone.
+  function markWords(options, event) {
+    const name = nameOf(options, event.text);
+    return event.duration > 0 ? name + ", " + durationWords(event.duration) : name;
+  }
+
   // uPlot paints its axis labels onto the canvas, so there is no element to hover for
   // a row's name. This lays one transparent band per row over the axis column, each
   // carrying what its name stands for. Rows are given top down, since that is how a
@@ -566,6 +583,44 @@ var PAPvaultPlots = (function () {
     };
     const chart = new uPlot(config, [[options.from, options.to], [null, null]], holder);
     chart.setScale("x", { min: options.from, max: options.to });
+
+    // The marks are painted onto the canvas, so there is nothing to hover. The one
+    // under the pointer is found in pixels, as it was drawn -- reaching back from the
+    // moment the device stamped it, and no narrower than the floor a very short event
+    // is widened to -- and its words are put on the plotting area for the browser to
+    // show. Found again on every move, so a zoom or a slide cannot leave it stale.
+    let telling = "";
+    const tell = function (words) {
+      if (words !== telling) {
+        telling = words;
+        chart.over.title = words;
+      }
+    };
+
+    chart.over.addEventListener("mousemove", function (moved) {
+      const box = chart.over.getBoundingClientRect();
+      const height = box.height / labels.length;
+      const atRow = Math.floor((moved.clientY - box.top) / height);
+      const x = moved.clientX - box.left;
+      let found = null;
+      for (const event of events) {
+        if (row.get(event.text) !== atRow) {
+          continue;
+        }
+        const to = chart.valToPos(event.seconds + Math.max(event.duration, 0), "x");
+        const wide = Math.max(to - chart.valToPos(event.seconds, "x"), EVENT_LEAST);
+        if (x >= to - wide && x <= to) {
+          found = event;
+          break;
+        }
+      }
+      tell(found ? markWords(options, found) : "");
+    });
+
+    chart.over.addEventListener("mouseleave", function () {
+      tell("");
+    });
+
     return chart;
   }
 
