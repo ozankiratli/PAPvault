@@ -69,14 +69,14 @@
     <section class="card calendar-card" id="calendar-card" aria-label="Calendar">
       <div class="calendar-slot" id="calendar-card-slot">
         <div class="calendar" id="calendar" role="group" aria-label="Choose a CPAP day or a range of them">
+          <div class="calendar-steps">
+            <button type="button" class="calendar-step" id="day-prev"><span class="step-arrow">&lsaquo;</span>Previous day</button>
+            <button type="button" class="calendar-step" id="day-next"><span class="step-arrow">&rsaquo;</span>Next day</button>
+          </div>
           <div class="calendar-head">
             <button type="button" class="calendar-nav tip" id="calendar-prev" aria-label="Previous month">&lsaquo;</button>
             <button type="button" class="calendar-month" id="calendar-month" aria-label="Choose a month"></button>
             <button type="button" class="calendar-nav tip" id="calendar-next" aria-label="Next month">&rsaquo;</button>
-          </div>
-          <div class="calendar-steps">
-            <button type="button" class="calendar-step" id="day-prev"><span class="step-arrow">&lsaquo;</span>Previous day</button>
-            <button type="button" class="calendar-step" id="day-next"><span class="step-arrow">&rsaquo;</span>Next day</button>
           </div>
           <div class="calendar-grid" id="calendar-grid"></div>
           <button type="button" class="calendar-range" id="choose-range" aria-pressed="false">Choose Range</button>
