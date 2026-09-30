@@ -1435,9 +1435,40 @@
     });
   }
 
+  // On a phone the list of sections is a page over the manual, opened from the bar
+  // of the dialog itself. Choosing one closes it, since the thing chosen is behind it.
+  const manualDialog = document.getElementById("manual-dialog");
+  const manualMenu = document.getElementById("manual-menu");
+
+  function showManualNav(on) {
+    manualDialog.classList.toggle("sections-open", on);
+    manualMenu.setAttribute("aria-expanded", on ? "true" : "false");
+  }
+
+  manualMenu.addEventListener("click", function () {
+    showManualNav(!manualDialog.classList.contains("sections-open"));
+  });
+
+  // A tap on the page the list is drawn over closes it, since the only other ways out
+  // are choosing a section and a key a phone does not have.
+  manualNav.addEventListener("click", function (event) {
+    if (!event.target.closest("button")) {
+      showManualNav(false);
+    }
+  });
+
+  // Escape belongs to the list while the list is up, and to the dialog after that.
+  manualDialog.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && manualDialog.classList.contains("sections-open")) {
+      event.preventDefault();
+      showManualNav(false);
+    }
+  });
+
   manualButtons.forEach(function (button) {
     button.addEventListener("click", function () {
       showManualSection(button.dataset.section);
+      showManualNav(false);
     });
   });
 

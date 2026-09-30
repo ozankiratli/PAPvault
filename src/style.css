@@ -925,6 +925,40 @@ button:disabled {
   width: min(52rem, calc(100vw - 2rem));
 }
 
+/* The manual is one shape whatever section is open: four fifths of the window, and
+   never under 400 pixels unless the window itself is. The dialog, its body and the
+   manual are each a column handing the rest of its height to the next, so the panes
+   are the one thing that scrolls. Written against [open] because a dialog that is not
+   open is hidden by its own display, which this would otherwise undo. */
+.modal.wide[open] {
+  display: flex;
+  height: 80dvh;
+  min-height: min(400px, 100dvh);
+}
+
+.modal.wide[open] .modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.modal.wide[open] .manual {
+  flex: 1;
+  min-height: 0;
+}
+
+.manual-nav,
+.manual-panes {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.manual-pane {
+  overflow: visible;
+}
+
 .manual {
   display: grid;
   grid-template-columns: 12rem 1fr;
@@ -1017,8 +1051,7 @@ button:disabled {
 }
 
 .manual-pane {
-  max-height: 60vh;
-  overflow-y: auto;
+  max-height: none;
 }
 
 .manual-pane h3 {
@@ -1039,13 +1072,59 @@ button:disabled {
   margin-bottom: 0.4rem;
 }
 
-.narrow .manual {
-  grid-template-columns: 1fr;
+/* On a phone the manual takes the whole screen, and its list of sections is a page
+   of its own over it rather than a column beside it or a heap of buttons above it. */
+.manual-menu {
+  display: none;
 }
 
-.narrow .manual-nav {
-  flex-direction: row;
-  flex-wrap: wrap;
+@media (max-width: 649.98px) {
+  .manual-menu {
+    display: inline-flex;
+    margin-right: 0.5rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.9rem;
+  }
+
+  /* On a phone it is the whole screen rather than four fifths of it. */
+  .modal.wide[open] {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+
+  .manual {
+    grid-template-columns: 1fr;
+  }
+
+  .manual-nav {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    overflow: auto;
+    padding: 1rem;
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
+    backdrop-filter: blur(0.2rem);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-0.75rem);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+  }
+
+  .sections-open .manual-nav {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+
+  .manual-pane {
+    padding-bottom: 2rem;
+  }
 }
 
 .modal::backdrop {

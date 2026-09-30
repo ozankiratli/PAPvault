@@ -749,6 +749,24 @@ def check_narrow(report, checks):
     checks.that("picking an action closes it", menu["afterPick"] is False)
     checks.that("and the action it was asked for happens", menu["manualOpen"] is True)
 
+    manual = report["manual"]
+    checks.that("the manual takes the whole screen", manual["fills"] is True)
+    checks.that("its sections are behind a button rather than beside the words",
+                manual["menuShown"] != "none" and manual["hiddenAtFirst"] == "hidden",
+                (manual["menuShown"], manual["hiddenAtFirst"]))
+    checks.that("the button opens them over the page",
+                manual["open"] is True and manual["fixed"] == "fixed"
+                and manual["covers"][0] >= report["view"] - 20,
+                (manual["open"], manual["fixed"], manual["covers"]))
+    checks.that("and says so to a screen reader", manual["expanded"] == "true",
+                manual["expanded"])
+    checks.that("a tap off a section closes them", manual["afterTap"] is False,
+                manual["afterTap"])
+    checks.that("choosing one closes them too", manual["afterPick"] is False,
+                manual["afterPick"])
+    checks.that("and shows that section", manual["now"] != manual["was"],
+                (manual["was"], manual["now"]))
+
 
 # What a card holds besides its recordings, none of which may ever become a file.
 NEVER_OPENED = ["STR.edf", "Journal.dat", "Identification.tgt", "Identification.crc",

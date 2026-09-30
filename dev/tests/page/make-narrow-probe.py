@@ -76,6 +76,39 @@ window.addEventListener("load", function () {
     return report;
   }
 
+  // The manual on a phone: the whole screen, with its sections a page over it that the
+  // bar of the dialog opens, rather than a column beside the words.
+  function manualReport() {
+    var dialog = document.getElementById("manual-dialog");
+    dialog.showModal();
+    var nav = document.getElementById("manual-nav");
+    var box = dialog.getBoundingClientRect();
+    var report = {
+      fills: Math.round(box.width) >= window.innerWidth - 2,
+      menuShown: getComputedStyle(document.getElementById("manual-menu")).display,
+      hiddenAtFirst: getComputedStyle(nav).visibility,
+      was: (document.querySelector(".manual-pane:not([hidden])") || {}).id
+    };
+    document.getElementById("manual-menu").click();
+    var open = nav.getBoundingClientRect();
+    // The list arrives with a transition on it, so what is asked is the state it was
+    // put into, not the half of the animation this instant happens to catch.
+    report.open = dialog.classList.contains("sections-open");
+    report.expanded = document.getElementById("manual-menu").getAttribute("aria-expanded");
+    report.covers = [Math.round(open.width), Math.round(open.height)];
+    report.fixed = getComputedStyle(nav).position;
+    // Anywhere that is not a section closes it again.
+    nav.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    report.afterTap = dialog.classList.contains("sections-open");
+    document.getElementById("manual-menu").click();
+    var buttons = nav.querySelectorAll("button[data-section]");
+    if (buttons.length > 1) { buttons[1].click(); }
+    report.afterPick = dialog.classList.contains("sections-open");
+    report.now = (document.querySelector(".manual-pane:not([hidden])") || {}).id;
+    dialog.close();
+    return report;
+  }
+
   var tries = 0;
   (function step() {
     if (++tries > 12000) { document.title = "GAVE UP"; return; }
@@ -112,7 +145,10 @@ window.addEventListener("load", function () {
       var wide = Math.round(one.getBoundingClientRect().width);
       if (!report.narrowest || wide < report.narrowest) { report.narrowest = wide; }
     });
-    if (window.innerWidth <= 500) { report.menu = menuReport(); }
+    if (window.innerWidth <= 500) {
+      report.menu = menuReport();
+      report.manual = manualReport();
+    }
     document.title = "NARROW " + JSON.stringify(report);
   })();
 });
