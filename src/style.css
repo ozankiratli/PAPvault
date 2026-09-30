@@ -936,7 +936,17 @@ button:disabled {
   min-height: min(400px, 100dvh);
 }
 
+/* The lane the panes keep for their scrollbar is theirs alone: the row along the top
+   ends where it did, so the title and the close button are not pushed out with it. */
+.modal.wide[open] .modal-head {
+  padding-right: 0.6rem;
+}
+
 .modal.wide[open] .modal-body {
+  /* The panes keep a lane of their own for the scrollbar, so the body gives back
+     about as much on that side. The two together put the words and the close button
+     the same distance from the edge as the words on the left. */
+  padding-right: 0.65rem;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -953,6 +963,12 @@ button:disabled {
 .manual-panes {
   min-height: 0;
   overflow-y: auto;
+}
+
+/* Room for the scrollbar that appears on a long section, so it does not sit over the
+   last letter of a line. */
+.manual-panes {
+  padding-right: 0.6rem;
 }
 
 .manual-pane {
@@ -1086,8 +1102,13 @@ button:disabled {
     font-size: 0.9rem;
   }
 
-  /* On a phone it is the whole screen rather than four fifths of it. */
+  /* On a phone it is the whole screen rather than four fifths of it, and the page it
+     came from shows faintly through it, so it reads as a part of this page rather
+     than as somewhere else. Its own dark backdrop goes, or what showed through would
+     be the dimming rather than the page. */
   .modal.wide[open] {
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
+    backdrop-filter: blur(0.2rem);
     width: 100vw;
     max-width: 100vw;
     height: 100dvh;
@@ -1120,6 +1141,10 @@ button:disabled {
     opacity: 1;
     visibility: visible;
     transform: none;
+  }
+
+  .modal.wide[open]::backdrop {
+    background: transparent;
   }
 
   .manual-pane {
