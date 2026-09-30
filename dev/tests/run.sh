@@ -134,6 +134,7 @@ step "the card reader against the synthetic answers" node dev/tests/card-vs-answ
 step "the CPAP day at every edge it has, in three time zones" day_boundary
 step "cards the committed cases cannot be" node dev/tests/cards/derived.js "$ROOT"
 step "the policy in the built page is the one it must be" python3 dev/tests/policy.py "$ROOT"
+step "the library in the page is the one its author published" python3 dev/tests/vendored.py "$ROOT"
 
 if [ "$PAGE" = "1" ]; then
     step "the built page in a headless browser" python3 dev/tests/page/run.py "$ROOT"

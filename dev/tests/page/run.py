@@ -41,7 +41,7 @@ def find_browser(named):
     sys.exit("page/run.py: no chromium or chrome on PATH; pass --browser")
 
 
-def run_page(browser, profile, page, budget=400000, width=1500):
+def run_page(browser, profile, page, budget=400000, width=1500, extra=()):
     """The page's document.title after it has finished, as text.
 
     The budget is virtual milliseconds, not real ones: a timer that is due fires at
@@ -56,8 +56,8 @@ def run_page(browser, profile, page, budget=400000, width=1500):
     profile.mkdir(parents=True)
     finished = subprocess.run(
         [browser, "--headless=new", "--user-data-dir=" + str(profile), "--v=0",
-         "--virtual-time-budget=%d" % budget, "--window-size=%d,1200" % width,
-         "--dump-dom", "file://" + str(page)],
+         "--virtual-time-budget=%d" % budget, "--window-size=%d,1200" % width]
+        + list(extra) + ["--dump-dom", "file://" + str(page)],
         capture_output=True, text=True, timeout=TIMEOUT,
         env={"PATH": "/usr/bin:/bin:/usr/local/bin", "TZ": "America/New_York",
              "HOME": str(profile), "LANG": "en_US.UTF-8"},
@@ -773,6 +773,69 @@ def check_listing(report, checks):
                 opened)
 
 
+# The keys the page is allowed to keep, and the only values each may hold. Anything
+# else in storage would be something a card put there, which is the thing that must
+# never happen: the origin is shared with every other site under the same account.
+ALLOWED_KEYS = {
+    "papvault-theme": {"dark", "light", "system"},
+    "papvault-time-format": {"12", "24"},
+    "papvault-charts": None,
+    "papvault-summary-charts": None,
+}
+CHART_KEYS = {"flow", "pressure", "leak", "respRate", "flowLim", "snore", "tidVol",
+              "minVent", "oximetry", "usage", "sessions", "events"}
+
+
+def check_settings(report, checks):
+    before = report["before"]
+    opened = before["opened"]
+    checks.that("the probe read a card", bool(opened), opened)
+    checks.that("no oximetry chart is offered",
+                not any("Oximetry" in name for name in before["boxes"]), before["boxes"])
+    wanted = {"Flow", "Pressure", "Leak Rate", "Respiratory Rate", "Flow Limitation",
+              "Snore", "Tidal Volume", "Minute Ventilation"}
+    checks.that("every other signal is", wanted <= set(before["boxes"]),
+                sorted(wanted - set(before["boxes"])))
+    # The card carries an oximetry file. Its header is read, which is how the session
+    # it belongs to is found; its samples are not, which is what "turned off" means.
+    checks.that("the oximetry file's samples are never read",
+                not any(name.endswith("_SAD.edf whole") for name in opened), opened)
+    checks.that("and the files that are drawn are read whole",
+                len([name for name in opened if name.endswith("whole")]) >= 3, opened)
+
+    for held in [before["storage"], report["storage"]]:
+        checks.that("nothing is kept but the page's own settings",
+                    set(held["keys"]) <= set(ALLOWED_KEYS), held["keys"])
+        for key, value in held["held"].items():
+            allowed = ALLOWED_KEYS.get(key)
+            if allowed:
+                checks.that("%s holds one of its own words" % key,
+                            value in allowed, value)
+            else:
+                try:
+                    chosen = json.loads(value)
+                except ValueError:
+                    chosen = None
+                checks.that("%s holds chart names and nothing else" % key,
+                            isinstance(chosen, list)
+                            and all(one in CHART_KEYS for one in chosen), value)
+    checks.that("nothing is kept in cookies", not report["cookies"], report["cookies"])
+    checks.that("nor in session storage", report["session"] == 0, report["session"])
+    checks.that("nor in a database", report["databases"] == 0, report["databases"])
+
+    checks.that("changing the clock changes it",
+                before["clockWas"] != before["clockNow"],
+                (before["clockWas"], before["clockNow"]))
+    checks.that("and the figures on screen follow it",
+                before["summaryChanged"] is True)
+    checks.that("the choice survives a reload",
+                report["clock"] == before["clockNow"],
+                (before["clockNow"], report["clock"]))
+    checks.that("and is what was kept",
+                report["storage"]["held"].get("papvault-time-format") == report["clock"],
+                report["storage"]["held"])
+
+
 def check_touch(report, checks):
     steps = dict((name, (span, at)) for name, span, at in report["steps"])
     whole = report["whole"]
@@ -807,6 +870,116 @@ def check_touch(report, checks):
                 list(steps["dragged down the page"]) == report["held"],
                 (report["held"], steps["dragged down the page"]))
     checks.that("the cursor has something to show", report["cursorShows"] is True)
+
+
+def check_frame(report, checks):
+    checks.that("what is inside the frame can be read at all",
+                report["reachable"] is True)
+    checks.that("the page says it does not run in a frame",
+                "does not run inside a frame" in report["words"], report["words"])
+    checks.that("and nothing of the interface is left",
+                not report["app"] and not report["calendar"] and not report["folderInput"],
+                (report["app"], report["calendar"], report["folderInput"]))
+    checks.that("the notice is all there is", report["elements"] == 1, report["elements"])
+
+
+def check_sticky(report, checks):
+    checks.that("the page is long enough to scroll", report["scrolled"] > 200,
+                (report["scrolled"], report["page"]))
+    checks.that("the bar is sticky", report["sticky"] == "sticky", report["sticky"])
+    checks.that("it is still at the top after scrolling to the bottom",
+                report["barTop"] == 0 and report["barMoved"] == 0,
+                (report["barTop"], report["barMoved"]))
+    # A bar that is there but drawn under a chart is a bar nobody can press.
+    checks.that("and it is what the pointer lands on at its own middle",
+                report["atBar"] == "the bar", report["atBar"])
+    checks.that("the cards start below it rather than under it",
+                report["cardTop"] >= report["barHeight"],
+                (report["cardTop"], report["barHeight"]))
+
+
+# What the grid marks and what the bar says, at each step of picking. The bar's text
+# is matched by shape rather than by date, so the card can change without the check.
+CALENDAR_STATES = [
+    ("a day picked", "false", 1, r"^\d{4}-\d{2}-\d{2}$"),
+    ("the button pressed", "true", 0, r"^\d{4}-\d{2}-\d{2}$"),
+    ("one end of a range", "true", 1, r"^\d{4}-\d{2}-\d{2} to \.\.\.$"),
+    ("that same day again", "true", 0, r"^\d{4}-\d{2}-\d{2}$"),
+    ("both ends in", "true", None, r"^\d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2}, \d+ days$"),
+    ("a second range, button untouched", "true", None,
+     r"^\d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2}, \d+ days$"),
+    ("the button pressed off", "false", None,
+     r"^\d{4}-\d{2}-\d{2} to \d{4}-\d{2}-\d{2}, \d+ days$"),
+]
+
+
+def check_calendar(report, checks):
+    steps = report["steps"]
+    checks.that("every step was reached", len(steps) == len(CALENDAR_STATES), len(steps))
+    if len(steps) != len(CALENDAR_STATES):
+        return
+    for (what, ranging, marked, shape), step in zip(CALENDAR_STATES, steps):
+        checks.that("%s: the step is the one expected" % what, step[0] == what, step)
+        checks.that("%s: the button is %s" % (what, "on" if ranging == "true" else "off"),
+                    step[1] == ranging, step)
+        if marked is not None:
+            checks.that("%s: the grid marks %d" % (what, marked), step[2] == marked, step)
+        checks.that("%s: the bar reads as it should" % what,
+                    re.match(shape, step[3]) is not None, step[3])
+    # The two that carry the whole design: arming clears the grid without losing the
+    # selection, and a second range needs no second press.
+    checks.that("arming leaves the selection named in the bar", steps[1][3] == steps[0][3],
+                (steps[0][3], steps[1][3]))
+    checks.that("a day clicked twice takes the pick back", steps[3][3] == steps[0][3],
+                (steps[0][3], steps[3][3]))
+    checks.that("a second range needs no second press", steps[5][3] != steps[4][3],
+                (steps[4][3], steps[5][3]))
+    checks.that("and turning the mode off keeps what was picked",
+                steps[6][3] == steps[5][3], (steps[5][3], steps[6][3]))
+    checks.that("the hint says what the calendar wants next",
+                steps[1][4] != steps[0][4], (steps[0][4], steps[1][4]))
+
+
+# Readable at the size each is drawn: normal text at 4.5, and the larger or heavier
+# things -- a day in a calendar cell, a plot's title -- at 3.
+CONTRAST_LEAST = {
+    "a selected day": 3.0,
+    "a day in a range": 3.0,
+    "a day holding a recording": 3.0,
+    "a plot's title": 3.0,
+}
+
+
+def shade(value):
+    part = value / 255.0
+    return part / 12.92 if part <= 0.03928 else ((part + 0.055) / 1.055) ** 2.4
+
+
+def brightness(color):
+    numbers = [float(one) for one in re.findall(r"[\d.]+", color or "")][:3]
+    if len(numbers) < 3:
+        return None
+    red, green, blue = (shade(one) for one in numbers)
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
+def check_contrast(report, checks):
+    for theme, pairs in sorted(report["themes"].items()):
+        checks.that("the %s theme was read" % theme, bool(pairs), pairs)
+        for what, ink, paper in pairs:
+            checks.that("%s has a color in the %s theme" % (what, theme),
+                        ink is not None and paper is not None, (ink, paper))
+            if ink is None or paper is None:
+                continue
+            one, two = brightness(ink), brightness(paper)
+            if one is None or two is None:
+                checks.that("%s in the %s theme reads as a color" % (what, theme), False,
+                            (ink, paper))
+                continue
+            ratio = (max(one, two) + 0.05) / (min(one, two) + 0.05)
+            least = CONTRAST_LEAST.get(what, 4.5)
+            checks.that("%s stands out enough in the %s theme" % (what, theme),
+                        ratio >= least, "%.2f against %.1f" % (ratio, least))
 
 
 def check_floor(report, checks):
@@ -854,7 +1027,17 @@ PROBES = [
     ("make-floor-probe.py", "floor", "FLOOR", check_floor),
     ("make-listing-probe.py", "listing", "LISTING", check_listing),
     ("make-touch-probe.py", "touch", "TOUCH", check_touch),
+    ("make-settings-probe.py", "settings", "SETTINGS", check_settings),
+    ("make-frame-probe.py", "frame", "FRAME", check_frame),
+    ("make-sticky-probe.py", "sticky", "STICKY", check_sticky),
+    ("make-calendar-probe.py", "calendar", "CALENDAR", check_calendar),
+    ("make-contrast-probe.py", "contrast", "CONTRAST", check_contrast),
 ]
+
+# Flags a probe needs that the rest must not have. One file may read another only
+# where the browser is told to allow it, which is what the frame probe does and what
+# nothing else should be able to do.
+FLAGS = {"frame": ["--allow-file-access-from-files"]}
 
 # The window a probe is given, where the default of 1500 is not what it is about.
 # Nothing below 500: headless Chromium clamps a window to that, so a narrower number
@@ -862,7 +1045,7 @@ PROBES = [
 WINDOWS = {"three-columns": 1600, "two-columns": 1400, "stacked": 800, "menu": 500}
 
 # Probes that need more virtual time than the rest, and why. See run_page.
-BUDGETS = {"grouped": 4000000}
+BUDGETS = {"grouped": 4000000, "calendar": 2000000, "contrast": 2000000}
 
 # A probe whose checks read something another probe recorded, so --only brings that
 # one along. Without it the later check compares against nothing and fails saying so
@@ -903,7 +1086,8 @@ def main():
                 built.add(builder)
             print("  %s" % name)
             title = run_page(browser, profile, workshop / (name + ".html"),
-                             BUDGETS.get(name, 400000), WINDOWS.get(name, 1500))
+                             BUDGETS.get(name, 400000), WINDOWS.get(name, 1500),
+                             FLAGS.get(name, ()))
             if name == "strip":
                 check_strip(payload(title, "STRIP"), checks)
             else:
