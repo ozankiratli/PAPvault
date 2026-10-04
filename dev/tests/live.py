@@ -9,9 +9,15 @@ served is what was published, which has no answer until it is. It is the one par
 It asks four things:
 
   1. **What the host sends.** The design assumes the page arrives with no security
-     header of its own, so its own `<meta>` policy is the one in force. A header that
-     appeared since the last release is a finding whether or not it looks harmful, and
-     a reporting header is collection even though the page is not the one doing it.
+     header of its own, so its own `<meta>` policy is the one in force. A policy, a
+     framing rule, a reporting header or a cookie from the host fails the run: a
+     reporting header is collection even though the page is not the one doing it.
+
+     What the host merely chooses -- whether it sends `Strict-Transport-Security`, for
+     instance -- is printed rather than failed. The page cannot set a response header
+     on this host, so no re-release could change it, and a check that fails for
+     something outside the release teaches a person to skim the output. What is
+     printed belongs in the release record, where a person can see what moved.
 
   2. **That nothing of the repository is served.** Only the built page is public;
      `src/`, `build.py`, `VERSION` and `CLAUDE.md` must all be 404.
@@ -50,6 +56,11 @@ HIDDEN = ["src/app.js", "build.py", "VERSION", "CLAUDE.md"]
 
 checks = 0
 bad = []
+
+
+def note(what, saw):
+    """Something worth knowing that is not a failure: the host's to send, not ours."""
+    print("    note  %s: %s" % (what, saw if saw is not None else "not sent"))
 
 
 def expect(what, holds, saw=None):
@@ -109,8 +120,12 @@ def main():
     for name in UNWANTED:
         expect("the host sends no %s of its own" % name,
                headerNamed(headers, name) is None, headerNamed(headers, name))
-    expect("the host asks for https and keeps asking",
-           headerNamed(headers, "strict-transport-security") is not None)
+    # Neither of these can be changed by releasing again: the page cannot set a
+    # response header, and what the host sends is the host's. They are printed so a
+    # release record carries them and a person can see what moved since last time.
+    note("strict-transport-security", headerNamed(headers, "strict-transport-security"))
+    note("access-control-allow-origin", headerNamed(headers, "access-control-allow-origin"))
+    note("server", headerNamed(headers, "server"))
 
     plain = urllib.parse.urlunparse(("http",) + tuple(urllib.parse.urlparse(url))[1:])
     status, headers, _ = fetched(plain, method="HEAD")

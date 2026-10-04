@@ -41,3 +41,25 @@ Nothing is transmitted and nothing is persisted; it is on the reader's own scree
 
 - **Nothing in `dev/tests/` inspects the policy's content.** The hashes cannot go stale, because `build.py` derives each from the same variable it inlines. But a hand-edit adding `'unsafe-inline'` or a `connect-src` would build clean and ship, and only a human reading the diff would catch it.
 - **Nothing checks the rendered page for the identifying marker.** The synthetic cards put `SYNTHETIC-DO-NOT-DISPLAY-7Q4Z` in every identifying field precisely so it can be searched for, and two checks look for it -- but in the reader's header object and in the loaded signals, never in the DOM. That is exactly why the folder-name finding survived: the probes name their folder `plain-night`, so nothing serial-shaped was ever on screen to notice.
+
+## Transport on a first visit, settled 2026-10-04
+
+**Written against the tree at `f44ba87`.** The bullet above left this open because deciding it looked like a third-party read -- the browsers' HSTS preload list. It is not: the browser on this machine will say what it does, and that is the thing that matters.
+
+**The method.** A fresh profile, the browser's own network log, and the plain address:
+
+    chromium --headless=new --user-data-dir=<throwaway> --log-net-log=<file> \
+        --dump-dom "http://ozankiratli.github.io/PAPvault/"
+
+Then read the log for `should_upgrade_to_ssl`, and for any `http://` URL at all. A fresh profile is what makes it an answer: a profile that had visited before could be acting on a remembered header rather than on a rule.
+
+**What it said.** No HSTS, and no cleartext request:
+
+    "host":"ozankiratli.github.io", "get_sts_state_result":false,
+    "host_found_in_hsts_bypass_list":false, "should_upgrade_to_ssl":false
+
+The only URL touched was the `https://` one, and the request went out as `:scheme: https` with `upgrade-insecure-requests: 1`. So **`github.io` gives this site no HSTS, from a header or from the preload list, and what upgraded the request was the browser's own policy** -- the same log gives its https-upgrade mode as `Automatic`.
+
+**What that leaves.** On a browser that does not upgrade by itself, a visitor who types `http://` sends one request in the clear, is redirected, and everything after it is https. **No card can be in that request**: at that moment the page is still being fetched, nothing has been opened, and nothing of a card is ever sent anywhere by any later request either. What it discloses is that someone asked for this address -- which the DNS lookup, the TLS server name and GitHub's own logging of the visitor's address already disclose, as the manual says.
+
+**What was decided.** `dev/tests/live.py` prints the header's absence on every release rather than failing on it. The page cannot set a response header on this host, so no re-release could change it, and a check that fails for something outside the release teaches a person to skim the output. The substitution risk named in the bullet above is unchanged, and the defence is still the published checksum, which `live.py` now compares automatically.

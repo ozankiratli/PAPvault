@@ -47,7 +47,7 @@ They are built into `dev/tests/out/`, which git ignores, and rebuilt on every ru
 
     python3 dev/tests/live.py
 
-It asks four things of the deployed site: what headers the host sends, whether plain http is redirected, whether anything of the repository is reachable beside the page, and whether the bytes being served are byte for byte the local build and say which version they are. **18 checks.**
+It asks four things of the deployed site: what headers the host sends, whether plain http is redirected, whether anything of the repository is reachable beside the page, and whether the bytes being served are byte for byte the local build and say which version they are. What the host merely chooses -- `Strict-Transport-Security`, `Access-Control-Allow-Origin`, which server answered -- is printed rather than failed, since the page cannot set a response header on this host and no re-release could change it. **17 checks.**
 
 **What it does not do is open a browser.** Whether the policy is *enforced* is answered by `outbound.py`, which attempts eighteen ways out of the page and watches the browser's own network log -- and this check is what says those are the same bytes as the ones being served. The residual is the origin: `outbound.py` loads the page from a file, and a served page has an https origin. `dev/CHECKLIST.md`'s `published` entry keeps one line for a person because of that, and it is one `fetch` in a console.
 
