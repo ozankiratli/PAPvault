@@ -4,7 +4,47 @@ All notable changes to PAPvault will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-**What a version number promises here is about what you see and what is read.** The public surface is what the page displays and what each figure means, which files on a card are opened and which are never touched, and the fact that nothing leaves your computer. A third number is something fixed that was merely wrong or awkward. A second means a figure now means something different, or the page reads a card differently, and it is worth reading why before trusting a comparison with what you saw last week. A first means it is a different tool. A version moves when something changes, never on a schedule.
+**How to read the version.** What a version number promises here is about what you see and what is read: what the page displays and what each figure means, which files on a card are opened and which are never touched, and the fact that nothing leaves your computer.
+
+- The third number (x.x.**c**): something fixed that was wrong or awkward, something new that changes no figure, or something rearranged.
+- The second number (x.**b**.x): a figure now means something different, or the page reads a card differently. Read why before trusting a comparison with what you saw in the last version.
+- The first number (**a**.x.x): full revamp of analysis, UI, or both.
+- **Between 0.0.1 and 1.0.0**, the numbers are also about stability and baseline features. Each step of the second number says a milestone in both has been reached. 
+
+A version moves when something changes, never on a schedule.
+
+---
+
+## [0.1.0] - 2026-10-04
+
+**PAPvault is achieving stability.** This version provides stable use for RESMED machines and establishes the baseline for basic features. 
+
+### Added
+
+- **How long an event lasted.** Point at a mark in the events strip of a single night, and it shows what the device called it and how long it ran: `OA, 6s`, `CSR, 10m`. A mark the device gave no duration of its own says its name alone.
+- **The manual links.** Where one section mentions another, following the link opens it.
+
+### Changed
+
+- **The manual on a phone is full screen rather than a panel.** It fills the screen, its list of sections sits behind a **Contents** button and opens over the text, and the page you came from shows faintly through so it is clear you have not left it. It also keeps one size instead of growing and shrinking with whichever section is open.
+- **Previous day and Next day moved above the month**, where they are reached first.
+
+### Behind it
+
+- **The release schedule is stremlined.** The manual verification list is reorganized, steps that can be automated are automated. 
+
+### Known limits
+
+Unchanged from 0.0.2. Only the AirSense 10 has been checked against a real card. Oximetry is off, because ResMed records it only with an oximeter of its own module and no compatible one was found to test against. On Firefox, a phone waits before it can start, and the manual says what to do about it. And no check in this repository has ever seen a real card: the suite runs the reader against synthetic cards whose answers are known by construction, and both were written here.
+
+### Commits
+
+- (1644e11) event times are displayed on the plots
+- (cfacb45) previous and next day buttons moved above month year
+- (a17c469) release cycle is reworked, and streamlined
+- (1438c98) Manual render fixes
+- (a7615cd) Manual styling
+- (80c5ab3) Releasing improvements
 
 ---
 
@@ -106,5 +146,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and
 
 ---
 
+[0.1.0]: https://github.com/ozankiratli/PAPvault/releases/tag/v0.1.0
 [0.0.2]: https://github.com/ozankiratli/PAPvault/releases/tag/v0.0.2
 [0.0.1]: https://github.com/ozankiratli/PAPvault/releases/tag/v0.0.1

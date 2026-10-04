@@ -20,6 +20,11 @@ Data: Real (AirSense 10) and synthetic data.
 Found: All released features are working. 
 
 ## 2026-09-27 at preparation to v0.0.2
-Checeked: All features on desktop and mobile, the wevbsite permissions I built.
+Checked: All features on desktop and mobile, the website permissions I built.
 Data: Real (AirSense 10) and synthetic data
 Found: All released features are working. 
+
+## 2026-10-04 at preparation to release v0.1.0
+Checked: All 11 checks from the CHECKLIST.md
+Data: Real (AirSense 10) and synthetic data
+Found: All released features functioned as expected.
