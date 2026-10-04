@@ -21,3 +21,6 @@ __pycache__/
 
 # Cards the checks derive from the synthetic ones
 /dev/tests/out/
+
+# The pid of the server dev/scripts/start-server.sh is running, if one is.
+dev/scripts/.server.pid
